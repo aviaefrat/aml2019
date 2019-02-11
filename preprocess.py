@@ -1,5 +1,5 @@
 import bisect
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import numpy as np
 import pandas as pd
@@ -198,41 +198,59 @@ def get_block_counts_dict(s):
     return block_counts
 
 
-def get_block_counts_series(s):
+def _get_block_proportions_series(s):
     block_counts_dict = get_block_counts_dict(s)
     block_counts = np.zeros(len(UNICODE_BLOCKS), dtype=np.uint8)
     for block_name, occurrences_in_block in block_counts_dict.items():
         block_counts[BLOCK_ORDER[block_name]] = occurrences_in_block
-    return pd.Series(block_counts)
+
+    # calculate proportions instead of absolute values
+    block_proportions = block_counts / block_counts.sum()
+
+    return pd.Series(block_proportions)
 
 
-def create_unicode_block_counts_feature(df, proportions=True):
+def create_unicode_block_proportions_feature(df):
 
-    # create a new dataframe with all block counts as features
-    block_counts = df['tweet_text'].apply(get_block_counts_series)
-    block_counts.columns = UNICODE_BLOCKS.values()
+    # create a new dataframe with all unicode block names as features
+    block_proportions = df['tweet_text'].apply(_get_block_proportions_series)
+    block_proportions.columns = UNICODE_BLOCKS.values()
 
     # remove all-zero blocks
-    block_counts = block_counts.loc[:, (block_counts != 0).any(axis=0)]
+    block_proportions = block_proportions.loc[:, (block_proportions != 0).any(axis=0)]
 
-    # calculated proportions instead of absolute values
-    if proportions:
-        block_counts = block_counts.apply(lambda x: x / x.sum(), axis=1)
-    return block_counts
+    return pd.concat([df, block_proportions], axis=1)
 
 
+def _get_char_proportions_series(s):
+    char_counter = Counter(s)
+
+    # "Latin Extended-B" block ends at 0x024F. +1 for total count of all additional chars
+    char_counts = np.zeros(0x0250 + 1, dtype=np.uint8)
+    for char, char_count in char_counter.items():
+        try:
+            char_counts[ord(char)] = char_count
+        except IndexError:
+            char_counts[-1] += char_count
+
+    # calculate proportions instead of absolute values
+    char_proportions = char_counts / char_counts.sum()
+
+    return pd.Series(char_proportions)
 
 
+def create_char_proportions_features(df):
 
-# def create_char_vocab(df):
-#     char_vocab = set()
-#     df['tweet_text'].apply(lambda x: char_vocab.update(x))
-#     return char_vocab
+    # create a new dataframe with characters from the the first
+    char_proportions = df['tweet_text'].apply(_get_char_proportions_series)
+    char_proportions.columns = [f'c_{chr(i)}' for i in range(0x0250)] + ['c_others']
 
+    # remove all-zero character proportions
+    char_proportions = char_proportions.loc[:, (char_proportions != 0).any(axis=0)]
 
-
-
+    return pd.concat([df, char_proportions], axis=1)
 
 
 df = load_language_data('en')
-create_unicode_block_counts_feature(df)
+# create_unicode_block_proportions_feature(df)
+create_char_proportions_features(df)
