@@ -251,6 +251,6 @@ def create_char_proportions_features(df):
     return pd.concat([df, char_proportions], axis=1)
 
 
-df = load_data()
-create_unicode_block_proportions_feature(df)
-create_char_proportions_features(df)
+# df = load_data()
+# create_unicode_block_proportions_feature(df)
+# create_char_proportions_features(df)

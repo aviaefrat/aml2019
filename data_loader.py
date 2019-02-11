@@ -13,12 +13,19 @@ def _load_language_data(lang, data_dir=DATA_DIR):
     return df
 
 
-def load_data(langs=LANGUAGES, data_dir=DATA_DIR):
+def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
     languages_df = []
     for lang in langs:
         language_df = _load_language_data(lang, data_dir)
-        languages_df.append(language_df)
+
+        # subsample language data
+        if lang_sample_size > 0:
+            language_df = language_df.sample(lang_sample_size)
+
         # add label
         language_df['lang'] = lang
+
+        languages_df.append(language_df)
+
     data = pd.concat(languages_df, axis=0)
     return data
