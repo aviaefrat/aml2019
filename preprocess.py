@@ -4,7 +4,7 @@ from collections import defaultdict, Counter
 import numpy as np
 import pandas as pd
 
-from data_loader import load_language_data
+from data_loader import load_data
 
 UNICODE_BLOCKS = {
     0x0000: 'Basic Latin',
@@ -190,7 +190,7 @@ def _get_unicode_block(c):
     return UNICODE_BLOCKS[block_starting_point]
 
 
-def get_block_counts_dict(s):
+def _get_block_counts_dict(s):
     block_counts = defaultdict(lambda: 0)
     for c in s:
         block_name = _get_unicode_block(c)
@@ -199,7 +199,7 @@ def get_block_counts_dict(s):
 
 
 def _get_block_proportions_series(s):
-    block_counts_dict = get_block_counts_dict(s)
+    block_counts_dict = _get_block_counts_dict(s)
     block_counts = np.zeros(len(UNICODE_BLOCKS), dtype=np.uint8)
     for block_name, occurrences_in_block in block_counts_dict.items():
         block_counts[BLOCK_ORDER[block_name]] = occurrences_in_block
@@ -251,6 +251,6 @@ def create_char_proportions_features(df):
     return pd.concat([df, char_proportions], axis=1)
 
 
-df = load_language_data('en')
-# create_unicode_block_proportions_feature(df)
+df = load_data()
+create_unicode_block_proportions_feature(df)
 create_char_proportions_features(df)
