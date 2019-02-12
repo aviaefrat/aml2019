@@ -297,6 +297,12 @@ def remove_retweets(tweets, ignore_non_handle=False):
     return without_retweets
 
 
+def remove_urls(tweets):
+    pattern = 'http\S+'
+
+    without_urls = tweets.apply(lambda t: re.sub(pattern, '', t))
+    return without_urls
+
 
 # df = load_data(lang_sample_size=100)
 # df = load_data()
