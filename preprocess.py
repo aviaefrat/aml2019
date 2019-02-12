@@ -252,40 +252,41 @@ def create_char_proportions_feature(df):
     return pd.concat([df, char_proportions], axis=1)
 
 
-def _get_char_bigrams_series(s, bigram_mapping):
+def _get_char_ngrams_series(s, ngram_mapping, n):
 
-    bigram_counts = np.zeros(len(bigram_mapping) + 1, dtype=np.uint8)  # `+1` for all other bigrams
+    ngram_counts = np.zeros(len(ngram_mapping) + 1, dtype=np.uint8)  # `+1` for all other ngrams
 
-    if len(s) < 2:
-        return pd.Series(bigram_counts)
+    if len(s) < n:
+        return pd.Series(ngram_counts)
 
-    for i in range(len(s)-1):
+    for i in range(len(s)-(n-1)):
         try:
-            bigram = s[i:i+2].lower()
-            bigram_counts[bigram_mapping[bigram]] += 1
+            ngram = s[i:i+n].lower()
+            ngram_counts[ngram_mapping[ngram]] += 1
         except KeyError:
-            bigram_counts[-1] += 1
+            ngram_counts[-1] += 1
 
-    bigram_proportions = bigram_counts / bigram_counts.sum()
+    ngram_proportions = ngram_counts / ngram_counts.sum()
 
-    return pd.Series(bigram_proportions)
+    return pd.Series(ngram_proportions)
 
 
-def create_char_bigrams_feature(df, chars):
+def extract_char_ngrams_feature(df, chars, n):
 
-    bigram_mapping = OrderedDict([(''.join(bigram_tuple), index) for (bigram_tuple, index)
-                                  in zip(product(chars, repeat=2),
-                                         range(len(chars) ** 2))])
-    bigram_proportions = df['tweet_text'].apply(_get_char_bigrams_series, args=(bigram_mapping,))
-    bigram_proportions.columns = [f'bg_{bigram}' for bigram in bigram_mapping.values()] + ['bg_others']
+    ngram_mapping = OrderedDict([(''.join(ngram_tuple), index) for (ngram_tuple, index)
+                                in zip(product(chars, repeat=n),
+                                       range(len(chars) ** n))])
+    ngram_proportions = df['tweet_text'].apply(_get_char_ngrams_series, args=(ngram_mapping, n))
+    ngram_proportions.columns = [f'{n}gram_{ngram}' for ngram
+                                 in ngram_mapping] + [f'{n}gram_others']
 
     # remove all-zero bigram proportions
-    bigram_proportions = bigram_proportions.loc[:, (bigram_proportions != 0).any(axis=0)]
+    ngram_proportions = ngram_proportions.loc[:, (ngram_proportions != 0).any(axis=0)]
 
-    return pd.concat([df, bigram_proportions], axis=1)
+    return pd.concat([df, ngram_proportions], axis=1)
 
 
 df = load_data(lang_sample_size=100)
 # create_unicode_block_proportions_feature(df)
 # create_char_proportions_features(df)
-x = create_char_bigrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)])
+x = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)
