@@ -1,4 +1,5 @@
 import bisect
+import re
 from collections import defaultdict, OrderedDict, Counter
 from itertools import product
 
@@ -286,7 +287,19 @@ def extract_char_ngrams_feature(df, chars, n):
     return pd.concat([df, ngram_proportions], axis=1)
 
 
-df = load_data(lang_sample_size=100)
+def remove_retweets(tweets, ignore_non_handle=False):
+
+    pattern = '^RT @?[\w]+: '
+    if ignore_non_handle:
+        pattern.replace('@?', '@')
+
+    without_retweets = tweets.apply(lambda t: re.sub(pattern, '', t))
+    return without_retweets
+
+
+
+# df = load_data(lang_sample_size=100)
+# df = load_data()
 # create_unicode_block_proportions_feature(df)
 # create_char_proportions_features(df)
-x = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)
+# x = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)

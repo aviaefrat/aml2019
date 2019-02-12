@@ -27,5 +27,5 @@ def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
 
         languages_df.append(language_df)
 
-    data = pd.concat(languages_df, axis=0)
+    data = pd.concat(languages_df, axis=0, ignore_index=True)
     return data
