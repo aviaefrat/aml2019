@@ -1,5 +1,6 @@
 import bisect
-from collections import defaultdict, Counter
+from collections import defaultdict, OrderedDict, Counter
+from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -239,7 +240,7 @@ def _get_char_proportions_series(s):
     return pd.Series(char_proportions)
 
 
-def create_char_proportions_features(df):
+def create_char_proportions_feature(df):
 
     # create a new dataframe with characters from the the first
     char_proportions = df['tweet_text'].apply(_get_char_proportions_series)
@@ -251,6 +252,40 @@ def create_char_proportions_features(df):
     return pd.concat([df, char_proportions], axis=1)
 
 
-# df = load_data()
+def _get_char_bigrams_series(s, bigram_mapping):
+
+    bigram_counts = np.zeros(len(bigram_mapping) + 1, dtype=np.uint8)  # `+1` for all other bigrams
+
+    if len(s) < 2:
+        return pd.Series(bigram_counts)
+
+    for i in range(len(s)-1):
+        try:
+            bigram = s[i:i+2].lower()
+            bigram_counts[bigram_mapping[bigram]] += 1
+        except KeyError:
+            bigram_counts[-1] += 1
+
+    bigram_proportions = bigram_counts / bigram_counts.sum()
+
+    return pd.Series(bigram_proportions)
+
+
+def create_char_bigrams_feature(df, chars):
+
+    bigram_mapping = OrderedDict([(''.join(bigram_tuple), index) for (bigram_tuple, index)
+                                  in zip(product(chars, repeat=2),
+                                         range(len(chars) ** 2))])
+    bigram_proportions = df['tweet_text'].apply(_get_char_bigrams_series, args=(bigram_mapping,))
+    bigram_proportions.columns = [f'bg_{bigram}' for bigram in bigram_mapping.values()] + ['bg_others']
+
+    # remove all-zero bigram proportions
+    bigram_proportions = bigram_proportions.loc[:, (bigram_proportions != 0).any(axis=0)]
+
+    return pd.concat([df, bigram_proportions], axis=1)
+
+
+df = load_data(lang_sample_size=100)
 # create_unicode_block_proportions_feature(df)
 # create_char_proportions_features(df)
+x = create_char_bigrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)])
