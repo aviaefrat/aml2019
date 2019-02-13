@@ -224,45 +224,19 @@ def create_unicode_block_proportions_feature(df):
     return pd.concat([df, block_proportions], axis=1)
 
 
-def _get_char_proportions_series(s):
-    char_counter = Counter(s)
-
-    # "Latin Extended-B" block ends at 0x024F. +1 for total count of all additional chars
-    char_counts = np.zeros(0x0250 + 1, dtype=np.uint8)
-    for char, char_count in char_counter.items():
-        try:
-            char_counts[ord(char)] = char_count
-        except IndexError:
-            char_counts[-1] += char_count
-
-    # calculate proportions instead of absolute values
-    char_proportions = char_counts / char_counts.sum()
-
-    return pd.Series(char_proportions)
-
-
-def create_char_proportions_feature(df):
-
-    # create a new dataframe with characters from the the first
-    char_proportions = df['tweet_text'].apply(_get_char_proportions_series)
-    char_proportions.columns = [f'c_{chr(i)}' for i in range(0x0250)] + ['c_others']
-
-    # remove all-zero character proportions
-    char_proportions = char_proportions.loc[:, (char_proportions != 0).any(axis=0)]
-
-    return pd.concat([df, char_proportions], axis=1)
-
-
-def _get_char_ngrams_series(s, ngram_mapping, n):
+def _get_char_ngrams_series(s, ngram_mapping, n, ignore_case):
 
     ngram_counts = np.zeros(len(ngram_mapping) + 1, dtype=np.uint8)  # `+1` for all other ngrams
 
     if len(s) < n:
         return pd.Series(ngram_counts)
 
+    if ignore_case:
+        s = s.lower()
+
     for i in range(len(s)-(n-1)):
         try:
-            ngram = s[i:i+n].lower()
+            ngram = s[i:i+n]
             ngram_counts[ngram_mapping[ngram]] += 1
         except KeyError:
             ngram_counts[-1] += 1
@@ -272,12 +246,14 @@ def _get_char_ngrams_series(s, ngram_mapping, n):
     return pd.Series(ngram_proportions)
 
 
-def extract_char_ngrams_feature(df, chars, n):
+def extract_char_ngrams_feature(df, chars, n, ignore_case=True):
 
     ngram_mapping = OrderedDict([(''.join(ngram_tuple), index) for (ngram_tuple, index)
                                 in zip(product(chars, repeat=n),
                                        range(len(chars) ** n))])
-    ngram_proportions = df['tweet_text'].apply(_get_char_ngrams_series, args=(ngram_mapping, n))
+
+    ngram_proportions = df['tweet_text'].apply(_get_char_ngrams_series,
+                                               args=(ngram_mapping, n, ignore_case))
     ngram_proportions.columns = [f'{n}gram_{ngram}' for ngram
                                  in ngram_mapping] + [f'{n}gram_others']
 
@@ -304,8 +280,16 @@ def remove_urls(tweets):
     return without_urls
 
 
+def extract_n_hashtags_feature(tweets):
+    pattern = '(?:^|\s)[#]{1}(\w+)'
+    n_hashtags = tweets.apply(lambda t: len(re.findall(pattern, t)))
+    return n_hashtags
+
+
 # df = load_data(lang_sample_size=100)
 # df = load_data()
+# n_hashtag = extract_n_hashtags_feature(df['tweet_text'])
 # create_unicode_block_proportions_feature(df)
 # create_char_proportions_features(df)
-# x = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)
+# df = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(0x250)], n=1, ignore_case=False)
+# df = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)
