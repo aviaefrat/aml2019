@@ -16,7 +16,6 @@ X['tweet_text'] = remove_handles(X['tweet_text'])
 X['tweet_text'] = remove_urls(X['tweet_text'])
 X['tweet_text'] = reduce_lengthening(X['tweet_text'])
 
-# X['n_hashtags'] = extract_n_hashtags_feature(X['tweet_text'])
 X = create_unicode_block_proportions_feature(X)
 X = extract_char_ngrams_feature(X, chars=abc+accents, n=1, ignore_case=False, ratio_of_total=False)
 X = extract_char_ngrams_feature(X, chars=other_symbols, n=1, ignore_case=False, ratio_of_total=False)

@@ -131,12 +131,6 @@ def remove_urls(tweets):
     return without_urls
 
 
-def extract_n_hashtags_feature(tweets):
-    pattern = '(?:^|\s)[#]{1}(\w+)'
-    n_hashtags = tweets.apply(lambda t: len(re.findall(pattern, t)))
-    return n_hashtags
-
-
 # df = load_data(lang_sample_size=100)
 # df = load_data()
 # n_hashtag = extract_n_hashtags_feature(df['tweet_text'])
