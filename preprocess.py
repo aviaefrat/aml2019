@@ -5,6 +5,7 @@ from collections import defaultdict, OrderedDict
 import numpy as np
 import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2
+import swifter
 
 from data_loader import load_data
 from constants import LANGUAGES, UNICODE_BLOCKS, BLOCK_STARTING_POSITIONS, BLOCK_ORDER, ABC_LOWER, ACCENTS_LOWER
@@ -39,7 +40,7 @@ def _get_block_proportions_series(s):
 def create_unicode_block_proportions_feature(df):
 
     # create a new dataframe with all unicode block names as features
-    block_proportions = df['tweet_text'].apply(_get_block_proportions_series)
+    block_proportions = df['tweet_text'].swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_get_block_proportions_series)
     block_proportions.columns = UNICODE_BLOCKS.values()
 
     # remove all-zero blocks
@@ -54,14 +55,14 @@ def reduce_lengthening(tweets):
     of length 3.
     """
     pattern = re.compile(r"(.)\1+")
-    without_repetitions = tweets.apply(lambda t: re.sub(pattern, r'\1\1', t))
+    without_repetitions = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(lambda t: re.sub(pattern, r'\1\1', t))
     return without_repetitions
 
 
 def remove_handles(tweets):
 
     pattern = r'(^|[^@\w])@(\w{1,15})\b'
-    without_handles = tweets.apply(lambda t: re.sub(pattern, '', t))
+    without_handles = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(lambda t: re.sub(pattern, '', t))
 
     return without_handles
 
@@ -72,14 +73,14 @@ def remove_retweets(tweets, ignore_retweets_with_no_handle=False):
     if ignore_retweets_with_no_handle:
         pattern.replace('@?', '@')
 
-    without_retweets = tweets.apply(lambda t: re.sub(pattern, '', t))
+    without_retweets = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(lambda t: re.sub(pattern, '', t))
     return without_retweets
 
 
 def remove_urls(tweets):
     pattern = 'http\S+'
 
-    without_urls = tweets.apply(lambda t: re.sub(pattern, '', t))
+    without_urls = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(lambda t: re.sub(pattern, '', t))
     return without_urls
 
 
@@ -99,7 +100,7 @@ def _get_ngram_counts(s, n, chars, ngram_counts, ignore_case):
 
 def get_ngram_counts(tweets, n, chars, ignore_case):
     ngram_counts = defaultdict(lambda: 0)
-    tweets.apply(_get_ngram_counts, args=(n, chars, ngram_counts, ignore_case))
+    tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_get_ngram_counts, args=(n, chars, ngram_counts, ignore_case))
     return ngram_counts
 
 
@@ -141,7 +142,7 @@ def _extract_char_ngrams(s, ngram_mapping, n, ignore_case):
 def extract_char_ngrams(tweets, ngrams, ignore_case):
     ngram_mapping = OrderedDict(zip(ngrams, range(len(ngrams))))
     n = len(next(iter(ngram_mapping)))
-    ngram_proportions = tweets.apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
+    ngram_proportions = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
 
     ngram_proportions.columns = list(ngram_mapping)
 
@@ -152,14 +153,3 @@ def extract_ngrams_feature(df, n, chars, k, ignore_case=True):
     significant_ngrams = calculate_significant_ngrams(df, n, chars, k, ignore_case)
     ngram_proportions = extract_char_ngrams(df['tweet_text'], significant_ngrams, ignore_case)
     return ngram_proportions
-
-# df = load_data(lang_sample_size=100)
-# df = load_data()
-# df['tweet_text'] = remove_retweets(df['tweet_text'])
-# df['tweet_text'] = remove_handles(df['tweet_text'])
-# df['tweet_text'] = remove_urls(df['tweet_text'])
-# df['tweet_text'] = reduce_lengthening(df['tweet_text'])
-#
-# extracted_ngrams = extract_ngrams_feature(df, 3, ABC_LOWER + ACCENTS_LOWER, 500)
-
-# create_unicode_block_proportions_feature(df)
