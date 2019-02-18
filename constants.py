@@ -1,3 +1,5 @@
+LANGUAGES = ('en', 'es', 'fr', 'in', 'it', 'nl', 'pt', 'tl')
+
 UNICODE_BLOCKS = {
     0x0000: 'Basic Latin',
     0x0080: 'Latin-1 Supplement',
@@ -175,13 +177,13 @@ BLOCK_STARTING_POSITIONS = sorted(UNICODE_BLOCKS)
 BLOCK_ORDER = {block: index for block, index
                in zip(UNICODE_BLOCKS.values(), range(len(UNICODE_BLOCKS)))}
 
-abc_upper = ''.join(tuple(chr(i) for i in range(ord('A'), ord('Z')+1)))
-abc_lower = abc_upper.lower()
-abc = abc_upper + abc_lower
+ABC_UPPER = ''.join(tuple(chr(i) for i in range(ord('A'), ord('Z') + 1)))
+ABC_LOWER = ABC_UPPER.lower()
+ABC = ABC_UPPER + ABC_LOWER
 
-accents_upper = u'ÀÁÂÃÇÈÉÊËÌÍÎÏÑÒÓÔÕÙÚÛÜŸÆŒĲ'
-accents_lower = accents_upper.lower()
-accents = accents_upper + accents_lower
+ACCENTS_UPPER = u'ÀÁÂÃÇÈÉÊËÌÍÎÏÑÒÓÔÕÙÚÛÜŸÆŒĲ'
+ACCENTS_LOWER = ACCENTS_UPPER.lower()
+ACCENTS = ACCENTS_UPPER + ACCENTS_LOWER
 
-basic_punctuation = '!?"\';,. '
-other_symbols = u'¢₡₧₲℆ºª№¿¡«»'
+BASIC_PUNCTUATION = '!?"\';,. '
+OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'

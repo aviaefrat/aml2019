@@ -2,9 +2,10 @@ import os
 
 import pandas as pd
 
+from constants import LANGUAGES
+
 
 DATA_DIR = os.path.join(os.getcwd(), 'dataset')
-LANGUAGES = ('en', 'es', 'fr', 'in', 'it', 'nl', 'pt', 'tl')
 
 
 def _load_language_data(lang, data_dir=DATA_DIR):
