@@ -1,13 +1,14 @@
 import bisect
 import re
-from collections import defaultdict, OrderedDict, Counter
+from collections import defaultdict, OrderedDict
 from itertools import product
 
 import numpy as np
 import pandas as pd
+from sklearn.feature_selection import SelectKBest, chi2
 
 from data_loader import load_data
-from constants import UNICODE_BLOCKS, BLOCK_STARTING_POSITIONS, BLOCK_ORDER
+from constants import LANGUAGES, UNICODE_BLOCKS, BLOCK_STARTING_POSITIONS, BLOCK_ORDER, ABC_LOWER, ACCENTS_LOWER
 
 
 def _get_unicode_block(c):
@@ -131,8 +132,85 @@ def remove_urls(tweets):
     return without_urls
 
 
+def _get_ngram_counts(s, n, chars, ngram_counts, ignore_case):
+    if ignore_case:
+        s = s.lower()
+    i = 0
+    while i <= len(s) - n:
+        for j in reversed(range(0, n)):
+            if s[i+j] not in chars:
+                i += j+1
+                break
+        else:
+            ngram_counts[s[i:i+n]] += 1
+            i += 1
+
+
+def get_ngram_counts(tweets, n, chars, ignore_case):
+    ngram_counts = defaultdict(lambda: 0)
+    tweets.apply(_get_ngram_counts, args=(n, chars, ngram_counts, ignore_case))
+    return ngram_counts
+
+
+def calculate_significant_ngrams(df, n, chars, k, ignore_case=True):
+    lang_ngram_counts = dict()
+
+    for lang in LANGUAGES:
+        tweets = df['tweet_text'][df['lang'] == lang]
+        lang_ngram_counts[lang] = get_ngram_counts(tweets, n, chars, ignore_case)
+
+    ngram_counts = pd.DataFrame.from_dict(lang_ngram_counts, orient='index')
+    ngram_counts.fillna(0, inplace=True)
+    selector = SelectKBest(chi2, k).fit(ngram_counts, range(len(ngram_counts)))
+    best_k_cols = selector.get_support()
+
+    return ngram_counts.columns[best_k_cols]
+
+
+def _extract_char_ngrams(s, ngram_mapping, n, ignore_case):
+
+    if ignore_case:
+        s = s.lower()
+
+    ngram_counts = np.zeros(len(ngram_mapping))
+
+    for i in range(len(s)-n+1):
+        try:
+            ngram_index = ngram_mapping[s[i:i+n]]
+            ngram_counts[ngram_index] += 1
+        except KeyError:
+            pass
+
+    total_count = ngram_counts.sum()
+    ngram_proportions = ngram_counts / total_count if total_count > 0 else ngram_counts
+
+    return pd.Series(ngram_proportions)
+
+
+def extract_char_ngrams(tweets, ngrams, ignore_case):
+    ngram_mapping = OrderedDict(zip(ngrams, range(len(ngrams))))
+    n = len(next(iter(ngram_mapping)))
+    ngram_proportions = tweets.apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
+
+    ngram_proportions.columns = list(ngram_mapping)
+
+    return ngram_proportions
+
+
+def extract_ngrams_feature(df, n, chars, k, ignore_case=True):
+    significant_ngrams = calculate_significant_ngrams(df, n, chars, k, ignore_case)
+    ngram_proportions = extract_char_ngrams(df['tweet_text'], significant_ngrams, ignore_case)
+    return ngram_proportions
+
 # df = load_data(lang_sample_size=100)
 # df = load_data()
+# df['tweet_text'] = remove_retweets(df['tweet_text'])
+# df['tweet_text'] = remove_handles(df['tweet_text'])
+# df['tweet_text'] = remove_urls(df['tweet_text'])
+# df['tweet_text'] = reduce_lengthening(df['tweet_text'])
+#
+# extracted_ngrams = extract_ngrams_feature(df, 3, ABC_LOWER + ACCENTS_LOWER, 500)
+
 # n_hashtag = extract_n_hashtags_feature(df['tweet_text'])
 # create_unicode_block_proportions_feature(df)
 # create_char_proportions_features(df)
