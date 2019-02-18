@@ -108,7 +108,7 @@ def calculate_significant_ngrams(df, n, chars, k, ignore_case=True):
     lang_ngram_counts = dict()
 
     for lang in LANGUAGES:
-        tweets = df['tweet_text'][df['lang'] == lang]
+        tweets = df['tweet_text'][df['language_id'] == lang]
         lang_ngram_counts[lang] = get_ngram_counts(tweets, n, chars, ignore_case)
 
     ngram_counts = pd.DataFrame.from_dict(lang_ngram_counts, orient='index')

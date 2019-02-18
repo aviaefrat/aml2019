@@ -24,7 +24,7 @@ def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
             language_df = language_df.sample(lang_sample_size)
 
         # add label
-        language_df['lang'] = lang
+        language_df['language_id'] = lang
 
         languages_df.append(language_df)
 

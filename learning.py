@@ -9,7 +9,7 @@ from preprocess import (create_unicode_block_proportions_feature,  remove_retwee
 
 data = load_data()
 X = data
-y, _ = data['lang'].factorize()
+y, _ = data['language_id'].factorize()
 
 X['tweet_text'] = remove_retweets(X['tweet_text'])
 X['tweet_text'] = remove_handles(X['tweet_text'])
@@ -21,7 +21,9 @@ X = pd.concat([X, extract_ngrams_feature(X, 1, ABC_LOWER+ACCENTS_LOWER, k='all')
 X = pd.concat([X, extract_ngrams_feature(X, 1, OTHER_SYMBOLS, k='all')], axis=1)
 X = pd.concat([X, extract_ngrams_feature(X, 2, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 1000)], axis=1)
 X = pd.concat([X, extract_ngrams_feature(X, 3, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 500)], axis=1)
-X = X.drop(['tweet_text', 'lang'], axis=1)
+X = pd.concat([X, extract_ngrams_feature(X, 4, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 500)], axis=1)
+X = pd.concat([X, extract_ngrams_feature(X, 5, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 500)], axis=1)
+X = X.drop(['tweet_text', 'language_id'], axis=1)
 
 train_data = lgb.Dataset(X, label=y)
 
