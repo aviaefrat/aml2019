@@ -1,7 +1,6 @@
 import bisect
 import re
 from collections import defaultdict, OrderedDict
-from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -47,54 +46,6 @@ def create_unicode_block_proportions_feature(df):
     block_proportions = block_proportions.loc[:, (block_proportions != 0).any(axis=0)]
 
     return pd.concat([df, block_proportions], axis=1)
-
-
-def _get_char_ngrams_series(s, ngram_mapping, n, ignore_case, ratio_of_total):
-
-    ngram_counts = np.zeros(len(ngram_mapping) + 1, dtype=np.uint8)  # `+1` for all other ngrams
-
-    if len(s) < n:
-        if ratio_of_total:
-            return pd.Series(ngram_counts)
-        else:
-            return pd.Series(ngram_counts[:-1])
-
-    if ignore_case:
-        s = s.lower()
-
-    for i in range(len(s)-(n-1)):
-        try:
-            ngram = s[i:i+n]
-            ngram_counts[ngram_mapping[ngram]] += 1
-        except KeyError:
-            ngram_counts[-1] += 1
-
-    if ratio_of_total:
-        ratio_of_total_ = (len(s) - ngram_counts[-1]) / len(s)
-        ngram_proportions = ngram_counts / ngram_counts[:-1].sum()
-        ngram_proportions[-1] = ratio_of_total_
-    else:
-        ngram_proportions = ngram_counts[:-1] / ngram_counts[:-1].sum()
-
-    return pd.Series(ngram_proportions)
-
-
-def extract_char_ngrams_feature(df, chars, n, ignore_case=True, ratio_of_total=True):
-
-    ngram_mapping = OrderedDict([(''.join(ngram_tuple), index) for (ngram_tuple, index)
-                                in zip(product(chars, repeat=n),
-                                       range(len(chars) ** n))])
-
-    ngram_proportions = df['tweet_text'].apply(_get_char_ngrams_series,
-                                               args=(ngram_mapping, n, ignore_case, ratio_of_total))
-
-    ngram_proportions.columns = [f'{n}gram_{ngram}' for ngram
-                                 in ngram_mapping]# + [f'{n}gram_others']
-
-    # remove all-zero bigram proportions
-    ngram_proportions = ngram_proportions.loc[:, (ngram_proportions != 0).any(axis=0)]
-
-    return pd.concat([df, ngram_proportions], axis=1)
 
 
 def reduce_lengthening(tweets):
@@ -211,8 +162,4 @@ def extract_ngrams_feature(df, n, chars, k, ignore_case=True):
 #
 # extracted_ngrams = extract_ngrams_feature(df, 3, ABC_LOWER + ACCENTS_LOWER, 500)
 
-# n_hashtag = extract_n_hashtags_feature(df['tweet_text'])
 # create_unicode_block_proportions_feature(df)
-# create_char_proportions_features(df)
-# df = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(0x250)], n=1, ignore_case=False)
-# df = extract_char_ngrams_feature(df, chars=[chr(i) for i in range(32, 47)] + [chr(i) for i in range(91, 126)], n=2)
