@@ -1,11 +1,10 @@
 import lightgbm as lgb
 import pandas as pd
 
-from constants import ABC, ABC_LOWER, ACCENTS, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS
+from constants import ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS
 from data_loader import load_data
-from preprocess import (create_unicode_block_proportions_feature,  remove_retweets, remove_urls,
-                        remove_handles, reduce_lengthening, extract_ngrams_feature)
-
+from preprocess import remove_retweets, remove_urls, remove_handles, reduce_lengthening
+from feature_extraction import extract_unicode_block_proportions_feature, extract_ngrams_feature
 
 data = load_data()
 X = data
@@ -16,7 +15,7 @@ X['tweet_text'] = remove_handles(X['tweet_text'])
 X['tweet_text'] = remove_urls(X['tweet_text'])
 X['tweet_text'] = reduce_lengthening(X['tweet_text'])
 
-X = create_unicode_block_proportions_feature(X)
+X = extract_unicode_block_proportions_feature(X)
 X = pd.concat([X, extract_ngrams_feature(X, 1, ABC_LOWER+ACCENTS_LOWER, k='all')], axis=1)
 X = pd.concat([X, extract_ngrams_feature(X, 1, OTHER_SYMBOLS, k='all')], axis=1)
 X = pd.concat([X, extract_ngrams_feature(X, 2, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 1000)], axis=1)
