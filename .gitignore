@@ -117,3 +117,7 @@ dmypy.json
 
 # PyCharm
 .idea/
+
+# project data
+dataset/
+features/

@@ -31,12 +31,26 @@ class FeatureExtractor:
         for n, chars, k in zip(ns, chars_list, ks):
             ngrams[n] = extract_ngrams_feature(self.tweets, self.labels, n, chars, k)
             if save:
-                filepath = os.path.join(self.data_path, f'{n}grams_{k}')
+                filepath = os.path.join(self.data_path, self._ngram_filename(n, k))
                 with open(filepath, 'w+') as f:
                     f.write(f'# chars: {chars}\n')
                     ngrams[n].to_csv(f)
 
         return pd.concat(ngrams.values(), axis=1)
+
+    def load_ngrams(self, ns=None, ks=None):
+        ns = ns or self.ns
+        ks = ks or self.ks
+        ngrams = list()
+        for i, (n, k) in enumerate(zip(ns, ks)):
+            filepath = os.path.join(self.data_path, self._ngram_filename(n, k))
+            ngrams.append(pd.read_csv(filepath, comment='#'))
+
+        return pd.concat(ngrams, axis=1)
+
+    @staticmethod
+    def _ngram_filename(n, k):
+        return f'{n}grams_{k}'
 
 
 def _get_unicode_block(c):
@@ -146,6 +160,3 @@ def extract_ngrams_feature(tweets, labels, n, chars, k, ignore_case=True):
     significant_ngrams = calculate_significant_ngrams(tweets, labels, n, chars, k, ignore_case)
     ngram_proportions = extract_char_ngrams(tweets, significant_ngrams, ignore_case)
     return ngram_proportions
-
-
-
