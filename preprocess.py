@@ -36,11 +36,12 @@ class PreProcessor:
 
     def reduce_lengthening(self):
         """
-        Replace repeated character sequences of length 3 or greater with sequences
-        of length 3.
+        Replace repeated character sequences of self.reduce_n or greater with sequences
+        of length self.reduce_n.
         """
-        pattern = re.compile(r"(.)\1+")
-        without_repetitions = self.tweets.apply(lambda t: re.sub(pattern, r'\1\1', t))
+
+        pattern = re.compile(f"(.)\\1{{{self.reduce_n-1},}}")
+        without_repetitions = self.tweets.apply(lambda t: re.sub(pattern, r'\1' * self.reduce_n, t))
         return without_repetitions
 
     def remove_handles(self):
