@@ -29,7 +29,7 @@ class PreProcessor:
 
     def load(self, filepath=None):
         filepath = filepath or os.path.join(self.dirpath, self.filename())
-        return pd.read_csv(filepath, index_col=0)
+        return pd.read_csv(filepath, index_col=0, squeeze=True)
 
     def filename(self):
         return f"processed-{'_'.join(self.order)}.csv"
@@ -61,7 +61,7 @@ class PreProcessor:
         return without_retweets
 
     def remove_urls(self):
-        pattern = 'http\S+'
+        pattern = r'http\S+'
 
         without_urls = self.tweets.apply(lambda t: re.sub(pattern, '', t))
         return without_urls
