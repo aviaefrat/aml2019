@@ -4,7 +4,8 @@ from collections import defaultdict, OrderedDict
 
 import numpy as np
 import pandas as pd
-import swifter
+# import swifter
+# .swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply
 from sklearn.feature_selection import SelectKBest, chi2
 
 from constants import UNICODE_BLOCKS, BLOCK_STARTING_POSITIONS, BLOCK_ORDER
@@ -22,7 +23,7 @@ class FeatureExtractor:
         self.data_path = data_path or FEATURES_DIR
         os.makedirs(self.data_path, exist_ok=True)
 
-    def extract_ngrams(self, ns=None, ks=None, chars=None, save=True):
+    def extract_ngrams(self, ns=None, chars=None, ks=None, save=True):
         ns = ns or self.ns
         chars_list = chars or self.chars
         ks = ks or self.ks
@@ -44,13 +45,34 @@ class FeatureExtractor:
         ngrams = list()
         for i, (n, k) in enumerate(zip(ns, ks)):
             filepath = os.path.join(self.data_path, self._ngram_filename(n, k))
-            ngrams.append(pd.read_csv(filepath, comment='#'))
+            ngrams.append(pd.read_csv(filepath, comment='#', index_col=0))
 
         return pd.concat(ngrams, axis=1)
 
+    def extract_unicode_blocks(self, save=True):
+        unicode_blocks = extract_unicode_blocks_feature(self.tweets)
+        if save:
+            filepath = os.path.join(self.data_path, 'unicode_blocks.csv')
+            unicode_blocks.to_csv(filepath)
+        return unicode_blocks
+
+    def load_unicode_blocks(self):
+        filepath = os.path.join(self.data_path, 'unicode_blocks.csv')
+        return pd.read_csv(filepath, index_col=0)
+
+    def extract_all(self, save=True):
+        ngrams = self.extract_ngrams(self.ns, self.chars, self.ks, save)
+        unicode_blocks = self.extract_unicode_blocks(save)
+        return pd.concat([ngrams, unicode_blocks], axis=1)
+
+    def load_all(self):
+        ngrams = self.load_ngrams(self.ns, self.ks)
+        unicode_blocks = self.load_unicode_blocks()
+        return pd.concat([ngrams, unicode_blocks], axis=1)
+
     @staticmethod
     def _ngram_filename(n, k):
-        return f'{n}grams_{k}'
+        return f'{n}grams_{k}.csv'
 
 
 def _get_unicode_block(c):
@@ -79,16 +101,16 @@ def _get_block_proportions_series(s):
     return pd.Series(block_proportions)
 
 
-def extract_unicode_block_proportions_feature(df):
+def extract_unicode_blocks_feature(tweets):
 
     # create a new dataframe with all unicode block names as features
-    block_proportions = df['tweet_text'].swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_get_block_proportions_series)
+    block_proportions = tweets.apply(_get_block_proportions_series)
     block_proportions.columns = UNICODE_BLOCKS.values()
 
     # remove all-zero blocks
     block_proportions = block_proportions.loc[:, (block_proportions != 0).any(axis=0)]
 
-    return pd.concat([df, block_proportions], axis=1)
+    return block_proportions
 
 
 def _get_ngram_counts(s, n, chars, ngram_counts, ignore_case):
@@ -107,7 +129,7 @@ def _get_ngram_counts(s, n, chars, ngram_counts, ignore_case):
 
 def get_ngram_counts(tweets, n, chars, ignore_case):
     ngram_counts = defaultdict(lambda: 0)
-    tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_get_ngram_counts, args=(n, chars, ngram_counts, ignore_case))
+    tweets.apply(_get_ngram_counts, args=(n, chars, ngram_counts, ignore_case))
     return ngram_counts
 
 
@@ -149,7 +171,7 @@ def _extract_char_ngrams(s, ngram_mapping, n, ignore_case):
 def extract_char_ngrams(tweets, ngrams, ignore_case):
     ngram_mapping = OrderedDict(zip(ngrams, range(len(ngrams))))
     n = len(next(iter(ngram_mapping)))
-    ngram_proportions = tweets.swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
+    ngram_proportions = tweets.apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
 
     ngram_proportions.columns = list(ngram_mapping)
 
