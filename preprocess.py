@@ -1,36 +1,52 @@
 import re
 
 # .swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply
-def reduce_lengthening(tweets):
-    """
-    Replace repeated character sequences of length 3 or greater with sequences
-    of length 3.
-    """
-    pattern = re.compile(r"(.)\1+")
-    without_repetitions = tweets.apply(lambda t: re.sub(pattern, r'\1\1', t))
-    return without_repetitions
 
 
-def remove_handles(tweets):
+class PreProcessor:
 
-    pattern = r'(^|[^@\w])@(\w{1,15})\b'
-    without_handles = tweets.apply(lambda t: re.sub(pattern, '', t))
+    def __init__(self, tweets, order=('rt', 'handle', 'reduce_len', 'url'), reduce_n=3):
+        self.tweets = tweets
+        self.order = order
+        self.reduce_n = reduce_n
 
-    return without_handles
+        self._mapping = {'rt': self.remove_retweets,
+                         'handle': self.remove_handles,
+                         'reduce_len': self.reduce_lengthening,
+                         'url': self.remove_urls}
 
+    def preprocess(self):
+        for func_shorthand_name in self.order:
+            self.tweets = self._mapping[func_shorthand_name]()
+        return self.tweets
 
-def remove_retweets(tweets, ignore_retweets_with_no_handle=False):
+    def reduce_lengthening(self):
+        """
+        Replace repeated character sequences of length 3 or greater with sequences
+        of length 3.
+        """
+        pattern = re.compile(r"(.)\1+")
+        without_repetitions = self.tweets.apply(lambda t: re.sub(pattern, r'\1\1', t))
+        return without_repetitions
 
-    pattern = '^RT @?[\w]+: '
-    if ignore_retweets_with_no_handle:
-        pattern.replace('@?', '@')
+    def remove_handles(self):
 
-    without_retweets = tweets.apply(lambda t: re.sub(pattern, '', t))
-    return without_retweets
+        pattern = r'(^|[^@\w])@(\w{1,15})\b'
+        without_handles = self.tweets.apply(lambda t: re.sub(pattern, '', t))
 
+        return without_handles
 
-def remove_urls(tweets):
-    pattern = 'http\S+'
+    def remove_retweets(self, ignore_retweets_with_no_handle=False):
 
-    without_urls = tweets.apply(lambda t: re.sub(pattern, '', t))
-    return without_urls
+        pattern = '^RT @?[\w]+: '
+        if ignore_retweets_with_no_handle:
+            pattern.replace('@?', '@')
+
+        without_retweets = self.tweets.apply(lambda t: re.sub(pattern, '', t))
+        return without_retweets
+
+    def remove_urls(self):
+        pattern = 'http\S+'
+
+        without_urls = self.tweets.apply(lambda t: re.sub(pattern, '', t))
+        return without_urls
