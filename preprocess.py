@@ -1,67 +1,52 @@
-import os
+from functools import partial
 import re
 
-import pandas as pd
 # .swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply
 
 
-class PreProcessor:
+def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
+    mapping = {'rt': remove_retweets,
+               'handle': remove_handles,
+               'letter_repeat': partial(reduce_lengthening, n=3),
+               'url': remove_urls}
 
-    def __init__(self, tweets, order=('rt', 'handle', 'reduce_len', 'url'), reduce_n=3, dirname=None):
-        self.tweets = tweets
-        self.order = order
-        self.reduce_n = reduce_n
-        self.dirpath = dirname or os.path.join(os.getcwd(), 'processed_data')
-        self._mapping = {'rt': self.remove_retweets,
-                         'handle': self.remove_handles,
-                         'reduce_len': self.reduce_lengthening,
-                         'url': self.remove_urls}
+    tweets = tweets.copy()
+    for action in actions:
+        tweets = mapping[action](tweets)
+    return tweets
 
-    def preprocess(self, dirpath=None, save=True):
-        dirpath = dirpath or self.dirpath
-        for func_shorthand_name in self.order:
-            self.tweets = self._mapping[func_shorthand_name]()
-        if save:
-            os.makedirs(dirpath, exist_ok=True)
-            filepath = os.path.join(dirpath, self.filename())
-            self.tweets.to_csv(filepath)
-        return self.tweets
 
-    def load(self, filepath=None):
-        filepath = filepath or os.path.join(self.dirpath, self.filename())
-        return pd.read_csv(filepath, index_col=0, squeeze=True)
+def reduce_lengthening(tweets, n=3, chars=None):
+    """
+    Replace repeated character sequences of self.reduce_n or greater with sequences
+    of length self.reduce_n.
+    """
+    chars = f'[{chars}]' if chars is not None else '.'
+    pattern = re.compile(f"({chars})\\1{{{n-1},}}")
+    without_repetitions = tweets.apply(lambda t: re.sub(pattern, r'\1' * n, t))
+    return without_repetitions
 
-    def filename(self):
-        return f"processed-{'_'.join(self.order)}.csv"
 
-    def reduce_lengthening(self):
-        """
-        Replace repeated character sequences of self.reduce_n or greater with sequences
-        of length self.reduce_n.
-        """
+def remove_handles(tweets):
 
-        pattern = re.compile(f"(.)\\1{{{self.reduce_n-1},}}")
-        without_repetitions = self.tweets.apply(lambda t: re.sub(pattern, r'\1' * self.reduce_n, t))
-        return without_repetitions
+    pattern = r'(^|[^@\w])@(\w{1,15})\b'
+    without_handles = tweets.apply(lambda t: re.sub(pattern, '', t))
 
-    def remove_handles(self):
+    return without_handles
 
-        pattern = r'(^|[^@\w])@(\w{1,15})\b'
-        without_handles = self.tweets.apply(lambda t: re.sub(pattern, '', t))
 
-        return without_handles
+def remove_retweets(tweets, ignore_retweets_with_no_handle=False):
 
-    def remove_retweets(self, ignore_retweets_with_no_handle=False):
+    pattern = '^RT @?[\w]+: '
+    if ignore_retweets_with_no_handle:
+        pattern.replace('@?', '@')
 
-        pattern = '^RT @?[\w]+: '
-        if ignore_retweets_with_no_handle:
-            pattern.replace('@?', '@')
+    without_retweets = tweets.apply(lambda t: re.sub(pattern, '', t))
+    return without_retweets
 
-        without_retweets = self.tweets.apply(lambda t: re.sub(pattern, '', t))
-        return without_retweets
 
-    def remove_urls(self):
-        pattern = r'http\S+'
+def remove_urls(tweets):
+    pattern = r'http\S+'
 
-        without_urls = self.tweets.apply(lambda t: re.sub(pattern, '', t))
-        return without_urls
+    without_urls = tweets.apply(lambda t: re.sub(pattern, '', t))
+    return without_urls
