@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 
 from constants import LANGUAGES
@@ -15,7 +16,8 @@ def _load_language_data(lang, data_dir=DATA_DIR):
 
 
 def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
-    languages_df = []
+    X = []
+    y = []
     for lang in langs:
         language_df = _load_language_data(lang, data_dir)
 
@@ -23,10 +25,9 @@ def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
         if lang_sample_size > 0:
             language_df = language_df.sample(lang_sample_size)
 
-        # add label
-        language_df['language_id'] = lang
+        X.append(language_df)
+        y.append(np.full(len(language_df), lang))
 
-        languages_df.append(language_df)
-
-    data = pd.concat(languages_df, axis=0, ignore_index=True)
-    return data
+    X = pd.concat(X, axis=0, ignore_index=True)
+    y = np.concatenate(y)
+    return X, y
