@@ -7,7 +7,7 @@ import re
 def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
     mapping = {'rt': remove_retweets,
                'handle': remove_handles,
-               'letter_repeat': partial(reduce_lengthening, n=3),
+               'letter_repeat': partial(reduce_lengthening, n=2),
                'url': remove_urls}
 
     tweets = tweets.copy()

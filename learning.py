@@ -2,22 +2,35 @@ import lightgbm as lgb
 
 from constants import ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS
 from data_loader import load_data
-from preprocess import remove_retweets, remove_urls, remove_handles, reduce_lengthening
-from feature_extraction import extract_unicode_block_proportions_feature, FeatureExtractor
+from preprocess import PreProcessor
+from feature_extraction import FeatureExtractor
 
-data = load_data(lang_sample_size=200)
+data = load_data(lang_sample_size=100)
 X = data['tweet_text']
 y = data['language_id']
 
-X = remove_retweets(X)
-X = remove_handles(X)
-X = remove_urls(X)
-X = reduce_lengthening(X)
+# pp = PreProcessor(X)
+# X = pp.preprocess()
+# loaded = pp.load()
+#
+# X = remove_retweets(X)
+# X = remove_handles(X)
+# X = remove_urls(X)
+# X = reduce_lengthening(X)
 
-fe = FeatureExtractor(X, y)
-df = fe.extract_ngrams([3], [200], [ABC_LOWER+ACCENTS_LOWER + ' '])
+fe = FeatureExtractor(X, y, [3], [ABC_LOWER], [30])
+df = fe.extract_ngrams([3], [ABC_LOWER], [30])
+# loaded_df = fe.load_ngrams([3], [3])
+# loaded_df = fe.load_ngrams()
 
-# X = extract_unicode_block_proportions_feature(X)
+# df = fe.extract_unicode_blocks()
+# loaded_df = fe.load_unicode_blocks()
+
+# df = fe.extract_all()
+# loaded_df = fe.load_all()
+
+
+# X = extract_unicode_blocks_feature(X)
 # X = pd.concat([X, extract_ngrams_feature(X, 1, ABC_LOWER+ACCENTS_LOWER, k='all')], axis=1)
 # X = pd.concat([X, extract_ngrams_feature(X, 1, OTHER_SYMBOLS, k='all')], axis=1)
 # X = pd.concat([X, extract_ngrams_feature(X, 2, ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION, 1000)], axis=1)

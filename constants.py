@@ -1,3 +1,5 @@
+import os
+
 LANGUAGES = ('en', 'es', 'fr', 'in', 'it', 'nl', 'pt', 'tl')
 
 UNICODE_BLOCKS = {
@@ -187,3 +189,7 @@ ACCENTS = ACCENTS_UPPER + ACCENTS_LOWER
 
 BASIC_PUNCTUATION = '!?"\';,. '
 OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'
+
+DATA_DIR = os.path.join(os.getcwd(), 'data')
+ACTIONS = ['rt', 'handle', 'letter_repeat', 'url']
+ACTIONS_LIST = [ACTIONS[:i] for i in range(0, len(ACTIONS)+1)]

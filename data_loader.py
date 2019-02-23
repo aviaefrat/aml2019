@@ -29,5 +29,5 @@ def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
         y.append(np.full(len(language_df), lang))
 
     X = pd.concat(X, axis=0, ignore_index=True)
-    y = np.concatenate(y)
+    y = pd.Series(np.concatenate(y), index=X.index)
     return X, y

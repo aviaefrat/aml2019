@@ -121,3 +121,4 @@ dmypy.json
 # project data
 dataset/
 features/
+data/
