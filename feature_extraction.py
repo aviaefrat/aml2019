@@ -22,7 +22,7 @@ class NgramExtractor(TransformerMixin):
         self.case_sensitive = None
         self.col_name_modifier = None
 
-    def fit(self, X, y, n, chars, k=1000, case_sensitive=False):
+    def fit(self, X, y, n, chars, k=10, case_sensitive=False):
         self.X_ = X
         self.y_ = y.loc[X.index]
         self.case_sensitive = case_sensitive
@@ -34,6 +34,8 @@ class NgramExtractor(TransformerMixin):
             self.col_name_modifier = ''
 
         self.ngrams_ = self.calculate_significant_ngrams(n, chars, k)
+
+        return self
 
     def transform(self, X):
         def extract_char_ngrams(s):
