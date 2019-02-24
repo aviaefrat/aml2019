@@ -16,10 +16,10 @@ def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
     return tweets
 
 
-def reduce_lengthening(tweets, n=3, chars=None):
+def reduce_lengthening(tweets, n=2, chars=None):
     """
-    Replace repeated character sequences of self.reduce_n or greater with sequences
-    of length self.reduce_n.
+    Replace repeated character sequences of n or greater with sequences
+    of length n.
     """
     chars = f'[{chars}]' if chars is not None else '.'
     pattern = re.compile(f"({chars})\\1{{{n-1},}}")

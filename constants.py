@@ -192,4 +192,4 @@ OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'
 
 DATA_DIR = os.path.join(os.getcwd(), 'data')
 ACTIONS = ['rt', 'handle', 'letter_repeat', 'url']
-ACTIONS_LIST = [ACTIONS[:i] for i in range(0, len(ACTIONS)+1)]
+ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
