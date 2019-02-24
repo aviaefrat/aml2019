@@ -19,18 +19,48 @@ class NgramExtractor(TransformerMixin):
         self.ngrams_ = None
         self.X_ = None
         self.y_ = None
-        self.col_name_modifier = ''
+        self.case_sensitive = None
+        self.col_name_modifier = None
 
-    def fit(self, X, y, n, chars, k=2000, ignore_case=True):
+    def fit(self, X, y, n, chars, k=1000, case_sensitive=False):
         self.X_ = X
         self.y_ = y.loc[X.index]
+        self.case_sensitive = case_sensitive
 
-        if ignore_case:
-            self.X_ = self.X_.str.lower()
-        else:
+        if self.case_sensitive:
             self.col_name_modifier = '_cased_'
+        else:
+            self.X_ = self.X_.str.lower()
+            self.col_name_modifier = ''
 
         self.ngrams_ = self.calculate_significant_ngrams(n, chars, k)
+
+    def transform(self, X):
+        def extract_char_ngrams(s):
+            ngram_counts = np.zeros(len(ngram_mapping))
+            for i in range(len(s) - n + 1):
+                try:
+                    ngram_index = ngram_mapping[s[i:i + n]]
+                    ngram_counts[ngram_index] += 1
+                except KeyError:
+                    pass
+            total_count = ngram_counts.sum()
+            _ngram_proportions = (ngram_counts / total_count
+                                  if total_count > 0
+                                  else ngram_counts)
+            return pd.Series(_ngram_proportions)
+
+        if self.case_sensitive:
+            self.X_ = X
+        else:
+            self.X_ = X.str.lower()
+        ngram_mapping = OrderedDict(zip(self.ngrams_, range(len(self.ngrams_))))
+        n = len(self.ngrams_[0])
+
+        ngram_proportions = self.X_.apply(extract_char_ngrams)
+
+        ngram_proportions.columns = list(ngram_mapping)
+        return ngram_proportions
 
     def calculate_significant_ngrams(self, n, chars, k):
         lang_ngram_counts = dict()
@@ -53,8 +83,7 @@ class NgramExtractor(TransformerMixin):
 
     @staticmethod
     def get_ngram_counts(tweets, n, chars):
-        def _get_ngram_counts(s, n, chars, ngram_counts):
-
+        def _get_ngram_counts(s):
             i = 0
             while i <= len(s) - n:
                 for j in reversed(range(0, n)):
@@ -66,72 +95,10 @@ class NgramExtractor(TransformerMixin):
                     i += 1
 
         ngram_counts = defaultdict(lambda: 0)
-        tweets.apply(_get_ngram_counts, args=(n, chars, ngram_counts))
+        tweets.apply(_get_ngram_counts)
         return ngram_counts
 
 
-# class FeatureExtractor:
-#     def __init__(self, tweets, labels, ns=None, chars=None, ks=None, data_path=None):
-#         self.tweets = tweets
-#         self.labels = labels
-#         self.ns = ns or tuple(range(1, 6))
-#         self.chars = chars or ''
-#         self.ks = ks or (500,) * len(self.ns)
-#         self.data_path = data_path or FEATURES_DIR
-#         os.makedirs(self.data_path, exist_ok=True)
-#
-#     def extract_ngrams(self, ns=None, chars=None, ks=None, save=True):
-#         ns = ns or self.ns
-#         chars_list = chars or self.chars
-#         ks = ks or self.ks
-#
-#         ngrams = OrderedDict()
-#         for n, chars, k in zip(ns, chars_list, ks):
-#             ngrams[n] = extract_ngrams_feature(self.tweets, self.labels, n, chars, k)
-#             if save:
-#                 filepath = os.path.join(self.data_path, self._ngram_filename(n, k))
-#                 with open(filepath, 'w+') as f:
-#                     f.write(f'# chars: {chars}\n')
-#                     ngrams[n].to_csv(f)
-#
-#         return pd.concat(ngrams.values(), axis=1)
-#
-#     def load_ngrams(self, ns=None, ks=None):
-#         ns = ns or self.ns
-#         ks = ks or self.ks
-#         ngrams = list()
-#         for i, (n, k) in enumerate(zip(ns, ks)):
-#             filepath = os.path.join(self.data_path, self._ngram_filename(n, k))
-#             ngrams.append(pd.read_csv(filepath, comment='#', index_col=0))
-#
-#         return pd.concat(ngrams, axis=1)
-#
-#     def extract_unicode_blocks(self, save=True):
-#         unicode_blocks = extract_unicode_blocks_feature(self.tweets)
-#         if save:
-#             filepath = os.path.join(self.data_path, 'unicode_blocks.csv')
-#             unicode_blocks.to_csv(filepath)
-#         return unicode_blocks
-#
-#     def load_unicode_blocks(self):
-#         filepath = os.path.join(self.data_path, 'unicode_blocks.csv')
-#         return pd.read_csv(filepath, index_col=0)
-#
-#     def extract_all(self, save=True):
-#         ngrams = self.extract_ngrams(self.ns, self.chars, self.ks, save)
-#         unicode_blocks = self.extract_unicode_blocks(save)
-#         return pd.concat([ngrams, unicode_blocks], axis=1)
-#
-#     def load_all(self):
-#         ngrams = self.load_ngrams(self.ns, self.ks)
-#         unicode_blocks = self.load_unicode_blocks()
-#         return pd.concat([ngrams, unicode_blocks], axis=1)
-#
-#     @staticmethod
-#     def _ngram_filename(n, k):
-#         return f'{n}grams_{k}.csv'
-#
-#
 # def _get_unicode_block(c):
 #     block_index = bisect.bisect(BLOCK_STARTING_POSITIONS, ord(c)) - 1
 #     block_starting_point = BLOCK_STARTING_POSITIONS[block_index]
@@ -168,35 +135,6 @@ class NgramExtractor(TransformerMixin):
 #     block_proportions = block_proportions.loc[:, (block_proportions != 0).any(axis=0)]
 #
 #     return block_proportions
-
-# def _extract_char_ngrams(s, ngram_mapping, n, ignore_case):
-#
-#     if ignore_case:
-#         s = s.lower()
-#
-#     ngram_counts = np.zeros(len(ngram_mapping))
-#
-#     for i in range(len(s)-n+1):
-#         try:
-#             ngram_index = ngram_mapping[s[i:i+n]]
-#             ngram_counts[ngram_index] += 1
-#         except KeyError:
-#             pass
-#
-#     total_count = ngram_counts.sum()
-#     ngram_proportions = ngram_counts / total_count if total_count > 0 else ngram_counts
-#
-#     return pd.Series(ngram_proportions)
-#
-#
-# def extract_char_ngrams(tweets, ngrams, ignore_case):
-#     ngram_mapping = OrderedDict(zip(ngrams, range(len(ngrams))))
-#     n = len(next(iter(ngram_mapping)))
-#     ngram_proportions = tweets.apply(_extract_char_ngrams, args=(ngram_mapping, n, ignore_case))
-#
-#     ngram_proportions.columns = list(ngram_mapping)
-#
-#     return ngram_proportions
 #
 #
 # def extract_ngrams_feature(tweets, labels, n, chars, k, ignore_case=True):
