@@ -22,7 +22,8 @@ def reduce_lengthening(tweets, n=2, chars=None):
     of length n.
     """
     chars = f'[{chars}]' if chars is not None else '.'
-    pattern = re.compile(f"({chars})\\1{{{n-1},}}")
+    pattern = re.compile(f"(?i)({chars})\\1{{{n-1},}}")
+    # todo the use of (?i) subs 'Eee' with 'EE' and 'eEe' with ee. fix it to preserve original case
     without_repetitions = tweets.apply(lambda t: re.sub(pattern, r'\1' * n, t))
     return without_repetitions
 
