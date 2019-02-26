@@ -1,6 +1,7 @@
 import os
+import re
 
-LANGUAGES = ('en', 'es', 'fr', 'in', 'it', 'nl', 'pt', 'tl')
+LANGUAGES = {'en': 0, 'es': 1, 'fr': 2, 'in': 3, 'it': 4, 'nl': 5, 'pt': 6, 'tl': 7}
 
 UNICODE_BLOCKS = {
     0x0000: 'Basic Latin',
@@ -191,5 +192,13 @@ BASIC_PUNCTUATION = '!?"\';,. '
 OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'
 
 DATA_DIR = os.path.join(os.getcwd(), 'data')
-ACTIONS = ['rt', 'handle', 'letter_repeat', 'url']
+ACTIONS = ['rt', 'handle', 'letter_repeat', 'url', 'punctuation_repeat']
 ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
+
+VOCAB_REGEX = re.compile(r""" 
+        (?:\b[^\W\d_](?:[^\W\d_]|['\-])+[^\W\d_]\b) # Words with apostrophes or dashes. 
+        | 
+        (?:\b[^\W\d_]+\b)                           # Words without apostrophes or dashes 
+        | 
+        (?:\#+[\w_]+[\w\'_\-]*[\w_]+)               # Twitter hashtags 
+        """, re.I | re.X)

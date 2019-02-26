@@ -1,6 +1,7 @@
 from functools import partial
 import re
 
+from constants import BASIC_PUNCTUATION, OTHER_SYMBOLS
 # .swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply
 
 
@@ -8,6 +9,7 @@ def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
     mapping = {'rt': remove_retweets,
                'handle': remove_handles,
                'letter_repeat': partial(reduce_lengthening, n=2),
+               'punctuation_repeat': partial(reduce_lengthening, n=1, chars=BASIC_PUNCTUATION+OTHER_SYMBOLS),
                'url': remove_urls}
 
     tweets = tweets.copy()

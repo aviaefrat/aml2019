@@ -1,6 +1,5 @@
-import bisect
-import os
 from collections import defaultdict, OrderedDict
+import os
 
 import numpy as np
 import pandas as pd
@@ -9,9 +8,63 @@ import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.base import TransformerMixin
 
-from constants import UNICODE_BLOCKS, BLOCK_STARTING_POSITIONS, BLOCK_ORDER
+from constants import LANGUAGES, VOCAB_REGEX
 
 FEATURES_DIR = os.path.join(os.getcwd(), 'features')
+
+
+class VocabExtractor(TransformerMixin):
+
+    def __init__(self):
+        self.X_ = None
+        self.y_ = None
+        self.vocab_ = None
+        self.token_pattern_ = VOCAB_REGEX
+
+    def fit(self, X, y):
+        def extract_vocab(t):
+            tokens = self.token_pattern_.findall(t)
+            for token in tokens:
+                if token.startswith('#'):
+                    hashtags.add(token)
+                else:
+                    words.add(token)
+
+        self.X_ = X.str.lower()
+        self.y_ = y.loc[X.index]
+
+        vocab = dict()
+        for lang in set(self.y_):
+            lang_tweets = self.X_[self.y_ == lang]
+            words, hashtags = set(), set()
+            lang_tweets.apply(extract_vocab)
+            vocab[lang] = {'words': words, 'hashtags': hashtags}
+
+        self.vocab_ = vocab
+        return self
+
+    def transform(self, X):
+        def extract_lang_token_proportions(s, mode):
+            lang_token_counts = np.zeros(len(LANGUAGES))
+            tokens = VOCAB_REGEX.findall(s)
+
+            if len(tokens) == 0:
+                return lang_token_counts
+            for token in tokens:
+                for i, lang in enumerate(LANGUAGES):
+                    if token in self.vocab_[lang][mode]:
+                        lang_token_counts[i] += 1
+            lang_token_proportions = lang_token_counts / len(tokens)
+
+            return pd.Series(lang_token_proportions)
+        X = X.str.lower()
+        word_lang_proportions = X.apply(extract_lang_token_proportions, args=('words',))
+        word_lang_proportions.columns = [f'w_{lang}' for lang in LANGUAGES]
+
+        hashtag_lang_proportions = X.apply(extract_lang_token_proportions, args=('hashtags',))
+        hashtag_lang_proportions.columns = [f'h_{lang}' for lang in LANGUAGES]
+
+        return pd.concat([word_lang_proportions, hashtag_lang_proportions], axis=1)
 
 
 class NgramExtractor(TransformerMixin):
@@ -22,7 +75,7 @@ class NgramExtractor(TransformerMixin):
         self.case_sensitive = None
         self.col_name_modifier = None
 
-    def fit(self, X, y, n, chars, k=10, case_sensitive=False):
+    def fit(self, X, y, n, chars, k=500, case_sensitive=False):
         self.X_ = X
         self.y_ = y.loc[X.index]
         self.case_sensitive = case_sensitive
@@ -38,7 +91,7 @@ class NgramExtractor(TransformerMixin):
         return self
 
     def transform(self, X):
-        def extract_char_ngrams(s):
+        def extract_ngram_proportions(s):
             ngram_counts = np.zeros(len(ngram_mapping))
             for i in range(len(s) - n + 1):
                 try:
@@ -59,7 +112,7 @@ class NgramExtractor(TransformerMixin):
         ngram_mapping = OrderedDict(zip(self.ngrams_, range(len(self.ngrams_))))
         n = len(self.ngrams_[0])
 
-        ngram_proportions = self.X_.apply(extract_char_ngrams)
+        ngram_proportions = self.X_.apply(extract_ngram_proportions)
 
         ngram_proportions.columns = list(ngram_mapping)
         return ngram_proportions
@@ -99,47 +152,3 @@ class NgramExtractor(TransformerMixin):
         ngram_counts = defaultdict(lambda: 0)
         tweets.apply(_get_ngram_counts)
         return ngram_counts
-
-
-# def _get_unicode_block(c):
-#     block_index = bisect.bisect(BLOCK_STARTING_POSITIONS, ord(c)) - 1
-#     block_starting_point = BLOCK_STARTING_POSITIONS[block_index]
-#     return UNICODE_BLOCKS[block_starting_point]
-#
-#
-# def _get_block_counts_dict(s):
-#     block_counts = defaultdict(lambda: 0)
-#     for c in s:
-#         block_name = _get_unicode_block(c)
-#         block_counts[block_name] += 1
-#     return block_counts
-#
-#
-# def _get_block_proportions_series(s):
-#     block_counts_dict = _get_block_counts_dict(s)
-#     block_counts = np.zeros(len(UNICODE_BLOCKS), dtype=np.uint8)
-#     for block_name, occurrences_in_block in block_counts_dict.items():
-#         block_counts[BLOCK_ORDER[block_name]] = occurrences_in_block
-#
-#     # calculate proportions instead of absolute values
-#     block_proportions = block_counts / block_counts.sum()
-#
-#     return pd.Series(block_proportions)
-#
-#
-# def extract_unicode_blocks_feature(tweets):
-#
-#     # create a new dataframe with all unicode block names as features
-#     block_proportions = tweets.apply(_get_block_proportions_series)
-#     block_proportions.columns = UNICODE_BLOCKS.values()
-#
-#     # remove all-zero blocks
-#     block_proportions = block_proportions.loc[:, (block_proportions != 0).any(axis=0)]
-#
-#     return block_proportions
-#
-#
-# def extract_ngrams_feature(tweets, labels, n, chars, k, ignore_case=True):
-#     significant_ngrams = calculate_significant_ngrams(tweets, labels, n, chars, k, ignore_case)
-#     ngram_proportions = extract_char_ngrams(tweets, significant_ngrams, ignore_case)
-#     return ngram_proportions
