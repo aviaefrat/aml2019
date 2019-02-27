@@ -1,4 +1,3 @@
-from functools import partial
 import re
 
 from constants import BASIC_PUNCTUATION, OTHER_SYMBOLS
@@ -8,26 +7,37 @@ from constants import BASIC_PUNCTUATION, OTHER_SYMBOLS
 def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
     mapping = {'rt': remove_retweets,
                'handle': remove_handles,
-               'letter_repeat': partial(reduce_lengthening, n=2),
-               'punctuation_repeat': partial(reduce_lengthening, n=1, chars=BASIC_PUNCTUATION+OTHER_SYMBOLS),
-               'url': remove_urls}
+               'url': remove_urls,
+               'red_rep': reduce_repetitions}
 
-    tweets = tweets.copy()
     for action in actions:
         tweets = mapping[action](tweets)
     return tweets
 
 
-def reduce_lengthening(tweets, n=2, chars=None):
-    """
-    Replace repeated character sequences of n or greater with sequences
-    of length n.
-    """
-    chars = f'[{chars}]' if chars is not None else '.'
-    pattern = re.compile(f"(?i)({chars})\\1{{{n-1},}}")
-    # todo the use of (?i) subs 'Eee' with 'EE' and 'eEe' with ee. fix it to preserve original case
-    without_repetitions = tweets.apply(lambda t: re.sub(pattern, r'\1' * n, t))
-    return without_repetitions
+def reduce_repetitions(tweets):
+    def _reduce_repetitions(n):
+        """
+        Replace repeated pattern appearing n or more consecutive times in string,
+        with the same pattern appearing exactly n consecutive times.
+        """
+        repeated_pattern = re.compile(f"({pattern})\\1{{{n-1},}}", re.I)
+        # todo the use of (?i) subs 'Eee' with 'EE' and 'eEe' with ee. fix it to preserve original case
+        return tweets.apply(lambda t: re.sub(repeated_pattern, r'\1' * n, t))
+
+    # reduce repetitions of single letters to at most 2
+    pattern = '.'
+    tweets = _reduce_repetitions(2)
+
+    # reduce repetitions of punctuation marks and spaces to at most 1
+    pattern = BASIC_PUNCTUATION+OTHER_SYMBOLS
+    tweets = _reduce_repetitions(1)
+
+    # reduce repetitions of patterns of two letters to at most 2
+    pattern = '.{2,2}'
+    tweets = _reduce_repetitions(2)
+
+    return tweets
 
 
 def remove_handles(tweets):
