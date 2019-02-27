@@ -13,10 +13,13 @@ ACCENTS = ACCENTS_UPPER + ACCENTS_LOWER
 
 BASIC_PUNCTUATION = '!?"\';,. '
 OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'
-
+DATASET_DIR = os.path.join(os.getcwd(), 'dataset')
 DATA_DIR = os.path.join(os.getcwd(), 'data')
+OUTPUTS_DIR = os.path.join(os.getcwd(), 'reports')
+
 ACTIONS = ['rt', 'handle', 'url', 'red_rep']
 ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
+FEATURE_TYPES = ['words', 'ngrams', 'all']
 
 VOCAB_REGEX = re.compile(r""" 
         (?:\b[^\W\d_](?:[^\W\d_]|['\-])+[^\W\d_]\b) # Words with apostrophes or dashes. 

@@ -1,5 +1,4 @@
 from collections import defaultdict, OrderedDict
-import os
 
 import numpy as np
 import pandas as pd
@@ -9,8 +8,6 @@ from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.base import TransformerMixin
 
 from constants import LANGUAGES, VOCAB_REGEX
-
-FEATURES_DIR = os.path.join(os.getcwd(), 'features')
 
 
 class VocabExtractor(TransformerMixin):
@@ -152,3 +149,15 @@ class NgramExtractor(TransformerMixin):
         ngram_counts = defaultdict(lambda: 0)
         tweets.apply(_get_ngram_counts)
         return ngram_counts
+
+
+def get_features(df, type_):
+    if type_ == 'ngrams':
+        return df.loc[:, ~(df.columns.str.startswith('w_') | df.columns.str.startswith('n_'))]
+    elif type_ == 'words':
+        return df.loc[:, df.columns.str.startswith('w_') | df.columns.str.startswith('n_')]
+    elif type_ == 'all':
+        return df
+    else:
+        raise ValueError(f'invalid feature type was specified: {type_}.'
+                         'available types: {ngrams, words, all}')

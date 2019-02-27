@@ -5,11 +5,11 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 
 from constants import (DATA_DIR, OUTPUTS_DIR,
-                       LANGUAGES, ACTIONS_LIST, SELECTED_FEATURE_OPTIONS,
+                       LANGUAGES, ACTIONS_LIST, FEATURE_TYPES,
                        ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS)
 from data_loader import load_data
 from preprocess import preprocess
-from feature_extraction import NgramExtractor, VocabExtractor
+from feature_extraction import NgramExtractor, VocabExtractor, get_features
 
 
 def create_initial_data(dest_dir=DATA_DIR, seed=0):
@@ -89,3 +89,16 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
 create_initial_data()
 create_preprocessed_data()
 create_featured_data()
+
+
+def train_test_and_report(data_dir=DATA_DIR, outputs_dir=OUTPUTS_DIR):
+    p = Path(data_dir)
+    for dir_ in [d for d in p.iterdir() if d.is_dir()]:
+        # load all the features
+        X_train = pd.read_csv(os.path.join(dir_, 'X_train.csv'))
+        # select features of specific types:
+        for feature_type in FEATURE_TYPES:
+            features = get_features(X_train, type_=feature_type)
+
+
+result = train_test_and_report()

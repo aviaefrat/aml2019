@@ -3,19 +3,16 @@ import os
 import numpy as np
 import pandas as pd
 
-from constants import LANGUAGES
+from constants import LANGUAGES, DATASET_DIR
 
 
-DATA_DIR = os.path.join(os.getcwd(), 'dataset')
-
-
-def _load_language_data(lang, data_dir=DATA_DIR):
+def _load_language_data(lang, data_dir=DATASET_DIR):
     filepath = f'{os.path.join(data_dir, lang)}.csv'
     df = pd.read_csv(filepath, usecols=['tweet_text'])
     return df
 
 
-def load_data(langs=LANGUAGES, data_dir=DATA_DIR, lang_sample_size=-1):
+def load_data(langs=LANGUAGES, data_dir=DATASET_DIR, lang_sample_size=-1):
     X = []
     y = []
     for lang in langs:
