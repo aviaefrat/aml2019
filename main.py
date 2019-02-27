@@ -4,11 +4,12 @@ import os
 from sklearn.model_selection import train_test_split
 import pandas as pd
 
-from constants import (DATA_DIR, ACTIONS_LIST,
+from constants import (DATA_DIR, OUTPUTS_DIR,
+                       LANGUAGES, ACTIONS_LIST, SELECTED_FEATURE_OPTIONS,
                        ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS)
 from data_loader import load_data
 from preprocess import preprocess
-from feature_extraction import NgramExtractor
+from feature_extraction import NgramExtractor, VocabExtractor
 
 
 def create_initial_data(dest_dir=DATA_DIR, seed=0):
@@ -54,29 +55,37 @@ def create_preprocessed_data(data_dir=DATA_DIR, actions_list=ACTIONS_LIST, dest_
 def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
     y_train = pd.read_csv(os.path.join(data_dir, 'y_train.csv'), index_col=0, header=None, squeeze=True)
     p = Path(pre_processed_root)
-    ne = NgramExtractor()
 
-    X_train = []
-    X_test = []
+    ne = NgramExtractor()
     _1gram_chars = ABC_LOWER+ACCENTS_LOWER+OTHER_SYMBOLS
     _ngram_chars = ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION
+
+    ve = VocabExtractor()
 
     for dir_ in [d for d in p.iterdir() if d.is_dir()]:
         pre_X_train = pd.read_csv(os.path.join(dir_, 'pre_X_train.csv'), index_col=0, header=None, squeeze=True)
         pre_X_test = pd.read_csv(os.path.join(dir_, 'pre_X_test.csv'), index_col=0, header=None, squeeze=True)
+        X_train = []
+        X_test = []
 
+        # extract char ngrams
         X_train.append(ne.fit_transform(pre_X_train, y_train, n=1, chars=_1gram_chars))
         X_test.append(ne.transform(pre_X_test))
         for n in range(2, 5+1):
             X_train.append(ne.fit_transform(pre_X_train, y_train, n=n, chars=_ngram_chars))
             X_test.append(ne.transform(pre_X_test))
 
+        # extract words and hashtags
+        X_train.append(ve.fit_transform(pre_X_train, y_train))
+        X_test.append(ve.transform(pre_X_test))
+
+        # save featured data
         X_train = pd.concat(X_train, axis=1)
         X_train.to_csv(os.path.join(dir_, 'X_train.csv'))
         X_test = pd.concat(X_test, axis=1)
         X_test.to_csv(os.path.join(dir_, 'X_test.csv'))
 
 
-# create_initial_data()
-# create_preprocessed_data()
-ne = create_featured_data()
+create_initial_data()
+create_preprocessed_data()
+create_featured_data()
