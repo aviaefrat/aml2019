@@ -10,7 +10,7 @@ import pandas as pd
 
 from constants import (DATA_DIR, MODELS_DIR, RESULTS_DIR,
                        LANGUAGES, ACTIONS_LIST, FEATURE_TYPES,
-                       ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS,
+                       ABC, ACCENTS, ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS,
                        HPARAM_GRID, CONSTANT_HPARAMS)
 from data_loader import load_data
 from preprocess import preprocess
@@ -32,9 +32,9 @@ def create_initial_data(dest_dir=DATA_DIR, seed=0):
 def create_preprocessed_data(data_dir=DATA_DIR, actions_list=ACTIONS_LIST, dest_dir=DATA_DIR):
 
     def save_preprocessed_data(train, test, dirpath):
-        # remove tweets that end out as empty strings
-        train = train[train != '']
-        test = test[test != '']
+        # remove tweets that end out as containing no letters
+        train = train[train.str.contains(f"[{ABC+ACCENTS}]")]
+        test = test[test.str.contains(f"[{ABC+ACCENTS}]")]
 
         train.to_csv(os.path.join(dirpath, 'pre_X_train.csv'), header=False)
         test.to_csv(os.path.join(dirpath, 'pre_X_test.csv'), header=False)
