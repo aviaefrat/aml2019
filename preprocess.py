@@ -4,7 +4,7 @@ from constants import BASIC_PUNCTUATION, OTHER_SYMBOLS
 # .swifter.allow_dask_on_strings(enable=True).progress_bar(False).apply
 
 
-def preprocess(tweets, actions=('rt', 'handle', 'letter_repeat', 'url')):
+def preprocess(tweets, actions=None):
     mapping = {'rt': remove_retweets,
                'handle': remove_handles,
                'url': remove_urls,
@@ -30,7 +30,7 @@ def reduce_repetitions(tweets):
     tweets = _reduce_repetitions(2)
 
     # reduce repetitions of punctuation marks and spaces to at most 1
-    pattern = BASIC_PUNCTUATION+OTHER_SYMBOLS
+    pattern = f"[{BASIC_PUNCTUATION+OTHER_SYMBOLS}]"
     tweets = _reduce_repetitions(1)
 
     # reduce repetitions of patterns of two letters to at most 2
