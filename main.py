@@ -1,12 +1,14 @@
 from collections import defaultdict
 from pathlib import Path
 import os
+import pickle
 
 from sklearn.model_selection import train_test_split
 import lightgbm as lgb
+import numpy as np
 import pandas as pd
 
-from constants import (DATA_DIR, OUTPUTS_DIR,
+from constants import (DATA_DIR, MODELS_DIR, RESULTS_DIR,
                        LANGUAGES, ACTIONS_LIST, FEATURE_TYPES,
                        ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS,
                        HPARAM_GRID, CONSTANT_HPARAMS)
@@ -103,29 +105,39 @@ def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
         # get the optimal number of rounds from early stopping
         metric = f"{params['metric']}-mean"
         num_rounds = len(cv_result[metric])
-        params['num_boost_round'] = num_rounds
+        params['num_iterations'] = num_rounds
+        del params['early_stopping_round']
 
         # save the score of these params
         best_score = cv_result[metric][-1]
         cv_results[best_score] = params
 
-    # return the params that resulted in the best score
-    return best_score, cv_results[min(cv_results)]
+    # return the best score and its params
+    best_score = min(cv_results)
+    return best_score, cv_results[best_score]
 
 
-def train_test_and_report(data_dir=DATA_DIR, outputs_dir=OUTPUTS_DIR):
+def _recursive_defaultdict():
+    return defaultdict(_recursive_defaultdict)
+
+
+def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
     p = Path(data_dir)
     y_train = pd.read_csv(os.path.join(DATA_DIR, 'y_train.csv'), index_col=0, header=None, squeeze=True)
     y_train = y_train.map(LANGUAGES)
-
-    recursivedict = lambda: defaultdict(recursivedict)
-    report = recursivedict()
+    y_test = pd.read_csv(os.path.join(DATA_DIR, 'y_test.csv'), index_col=0, header=None, squeeze=True)
+    y_test = y_test.map(LANGUAGES)
+    results = _recursive_defaultdict()
 
     for dir_ in [d for d in p.iterdir() if d.is_dir()]:
 
-        # load all the features
+        # load the relevant preprocessed data
         X_train = pd.read_csv(os.path.join(dir_, 'X_train.csv'), index_col=0)
         y_train = y_train.loc[X_train.index]
+        results[dir_.name]['y_train'] = y_train
+        X_test = pd.read_csv(os.path.join(dir_, 'X_test.csv'), index_col=0)
+        y_test = y_test.loc[X_test.index]
+        results[dir_.name]['y_test'] = y_test
 
         for feature_type in FEATURE_TYPES:
             # select features to use in training
@@ -134,10 +146,37 @@ def train_test_and_report(data_dir=DATA_DIR, outputs_dir=OUTPUTS_DIR):
 
             # tune hyper parameters and save them
             best_score, best_hyperparams = tune_hyperparams(train_data)
-            report[dir_.name][feature_type]['score'] = best_score
-            report[dir_.name][feature_type]['params'] = best_hyperparams
+            results[dir_.name][feature_type]['cv_error'] = best_score
+            results[dir_.name][feature_type]['params'] = best_hyperparams
 
-    return report
+            # train
+            booster = lgb.train(best_hyperparams, train_data)
+
+            # calculate training metrics
+            train_predictions = booster.predict(X_train).argmax(axis=1)
+            train_predictions = pd.Series(train_predictions, index=X_train.index)
+            results[dir_.name][feature_type]['train_pred'] = train_predictions
+            # todo delete the following line later
+            results[dir_.name][feature_type]['train_error'] = np.mean(train_predictions != y_train)
+
+            # calculate test metrics
+            test_predictions = booster.predict(X_test).argmax(axis=1)
+            test_predictions = pd.Series(test_predictions, index=X_test.index)
+            results[dir_.name][feature_type]['test_pred'] = test_predictions
+            # todo delete the following line later
+            results[dir_.name][feature_type]['test_error'] = np.mean(test_predictions != y_test)
+
+            # save the model
+            models_dir = os.path.join(dir_, MODELS_DIR)
+            os.makedirs(models_dir, exist_ok=True)
+            booster.save_model(os.path.join(models_dir, f"{feature_type}_model.txt"))
+
+    # save the results
+    os.makedirs(results_dir, exist_ok=True)
+    with open(os.path.join(results_dir, 'results.pkl'), 'wb') as handle:
+        pickle.dump(results, handle)
+
+    return results
 
 
-result = train_test_and_report()
+results = train_and_test()

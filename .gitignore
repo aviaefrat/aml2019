@@ -122,3 +122,4 @@ dmypy.json
 dataset/
 features/
 data/
+results/

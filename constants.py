@@ -18,14 +18,15 @@ BASIC_PUNCTUATION = '!?"\';,. '
 OTHER_SYMBOLS = u'¢₡₧₲℆ºª№¿¡«»'
 DATASET_DIR = os.path.join(os.getcwd(), 'dataset')
 DATA_DIR = os.path.join(os.getcwd(), 'data')
-OUTPUTS_DIR = os.path.join(os.getcwd(), 'reports')
+MODELS_DIR = 'models'
+RESULTS_DIR = os.path.join(os.getcwd(), 'results')
 
 ACTIONS = ['rt', 'handle', 'url', 'red_rep']
 ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
 FEATURE_TYPES = ['words', 'ngrams', 'all']
 HPARAM_GRID = ParameterGrid({'learning_rate': [0.05, 0.1, 0.2], 'num_leaves': [15, 31, 63]})
 CONSTANT_HPARAMS = {'objective': 'multiclass', 'num_class': 8, 'metric': 'multi_error',
-                    'num_iterations': 1000, 'early_stopping_round': 10}
+                    'num_iterations': 1000, 'early_stopping_round': 5}
 VOCAB_REGEX = re.compile(r""" 
         (?:\b[^\W\d_](?:[^\W\d_]|['\-])+[^\W\d_]\b) # Words with apostrophes or dashes. 
         | 
