@@ -1,12 +1,15 @@
+from collections import defaultdict
 from pathlib import Path
 import os
 
 from sklearn.model_selection import train_test_split
+import lightgbm as lgb
 import pandas as pd
 
 from constants import (DATA_DIR, OUTPUTS_DIR,
                        LANGUAGES, ACTIONS_LIST, FEATURE_TYPES,
-                       ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS)
+                       ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS,
+                       HPARAM_GRID, CONSTANT_HPARAMS)
 from data_loader import load_data
 from preprocess import preprocess
 from feature_extraction import NgramExtractor, VocabExtractor, get_features
@@ -31,8 +34,8 @@ def create_preprocessed_data(data_dir=DATA_DIR, actions_list=ACTIONS_LIST, dest_
         train = train[train != '']
         test = test[test != '']
 
-        train.to_csv(os.path.join(dirpath, 'pre_X_train.csv'))
-        test.to_csv(os.path.join(dirpath, 'pre_X_test.csv'))
+        train.to_csv(os.path.join(dirpath, 'pre_X_train.csv'), header=False)
+        test.to_csv(os.path.join(dirpath, 'pre_X_test.csv'), header=False)
 
     X_train = pd.read_csv(os.path.join(data_dir, 'raw_X_train.csv'), index_col=0, header=None, squeeze=True)
     X_test = pd.read_csv(os.path.join(data_dir, 'raw_X_test.csv'), index_col=0, header=None, squeeze=True)
@@ -86,19 +89,55 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
         X_test.to_csv(os.path.join(dir_, 'X_test.csv'))
 
 
-create_initial_data()
-create_preprocessed_data()
-create_featured_data()
+# create_initial_data()
+# create_preprocessed_data()
+# create_featured_data()
+
+
+def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
+    cv_results = {}
+    for params in param_grid:
+        params.update(CONSTANT_HPARAMS)
+        cv_result = lgb.cv(params, train_data, nfold=5)
+
+        # get the optimal number of rounds from early stopping
+        metric = f"{params['metric']}-mean"
+        num_rounds = len(cv_result[metric])
+        params['num_boost_round'] = num_rounds
+
+        # save the score of these params
+        best_score = cv_result[metric][-1]
+        cv_results[best_score] = params
+
+    # return the params that resulted in the best score
+    return best_score, cv_results[min(cv_results)]
 
 
 def train_test_and_report(data_dir=DATA_DIR, outputs_dir=OUTPUTS_DIR):
     p = Path(data_dir)
+    y_train = pd.read_csv(os.path.join(DATA_DIR, 'y_train.csv'), index_col=0, header=None, squeeze=True)
+    y_train = y_train.map(LANGUAGES)
+
+    recursivedict = lambda: defaultdict(recursivedict)
+    report = recursivedict()
+
     for dir_ in [d for d in p.iterdir() if d.is_dir()]:
+
         # load all the features
-        X_train = pd.read_csv(os.path.join(dir_, 'X_train.csv'))
-        # select features of specific types:
+        X_train = pd.read_csv(os.path.join(dir_, 'X_train.csv'), index_col=0)
+        y_train = y_train.loc[X_train.index]
+
         for feature_type in FEATURE_TYPES:
+            # select features to use in training
             features = get_features(X_train, type_=feature_type)
+            train_data = lgb.Dataset(features, label=y_train)
+
+            # tune hyper parameters and save them
+            best_score, best_hyperparams = tune_hyperparams(train_data)
+            report[dir_.name][feature_type]['score'] = best_score
+            report[dir_.name][feature_type]['params'] = best_hyperparams
+
+    return report
 
 
 result = train_test_and_report()

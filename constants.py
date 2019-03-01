@@ -1,6 +1,9 @@
 import os
 import re
 
+from sklearn.model_selection import ParameterGrid
+
+
 LANGUAGES = {'en': 0, 'es': 1, 'fr': 2, 'in': 3, 'it': 4, 'nl': 5, 'pt': 6, 'tl': 7}
 
 ABC_UPPER = ''.join(tuple(chr(i) for i in range(ord('A'), ord('Z') + 1)))
@@ -20,7 +23,9 @@ OUTPUTS_DIR = os.path.join(os.getcwd(), 'reports')
 ACTIONS = ['rt', 'handle', 'url', 'red_rep']
 ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
 FEATURE_TYPES = ['words', 'ngrams', 'all']
-
+HPARAM_GRID = ParameterGrid({'learning_rate': [0.05, 0.1, 0.2], 'num_leaves': [15, 31, 63]})
+CONSTANT_HPARAMS = {'objective': 'multiclass', 'num_class': 8, 'metric': 'multi_error',
+                    'num_iterations': 1000, 'early_stopping_round': 10}
 VOCAB_REGEX = re.compile(r""" 
         (?:\b[^\W\d_](?:[^\W\d_]|['\-])+[^\W\d_]\b) # Words with apostrophes or dashes. 
         | 
