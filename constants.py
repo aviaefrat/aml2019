@@ -21,7 +21,7 @@ DATA_DIR = os.path.join(os.getcwd(), 'data')
 MODELS_DIR = 'models'
 RESULTS_DIR = os.path.join(os.getcwd(), 'results')
 
-ACTIONS = ['rt', 'handle', 'url', 'red_rep']
+ACTIONS = ['rt', 'handle', 'url', 'red_rep', 'strip']
 ACTIONS_LIST = [ACTIONS[:i] for i in range(1, len(ACTIONS)+1)]
 FEATURE_TYPES = ['words', 'ngrams', 'all']
 HPARAM_GRID = ParameterGrid({'learning_rate': [0.05, 0.1, 0.2], 'num_leaves': [15, 31, 63]})

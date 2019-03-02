@@ -39,8 +39,8 @@ def create_preprocessed_data(data_dir=DATA_DIR, actions_list=ACTIONS_LIST, dest_
         train.to_csv(os.path.join(dirpath, 'pre_X_train.csv'), header=False)
         test.to_csv(os.path.join(dirpath, 'pre_X_test.csv'), header=False)
 
-    X_train = pd.read_csv(os.path.join(data_dir, 'raw_X_train.csv'), index_col=0, header=None, squeeze=True)
-    X_test = pd.read_csv(os.path.join(data_dir, 'raw_X_test.csv'), index_col=0, header=None, squeeze=True)
+    X_train = pd.read_csv(os.path.join(data_dir, 'raw_X_train.csv'), index_col=0, header=None, squeeze=True, quotechar='"')
+    X_test = pd.read_csv(os.path.join(data_dir, 'raw_X_test.csv'), index_col=0, header=None, squeeze=True, quotechar='"')
 
     for actions in actions_list:
         actions_dirname = '-'.join(actions)
@@ -68,8 +68,8 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
     ve = VocabExtractor()
 
     for dir_ in [d for d in p.iterdir() if d.is_dir()]:
-        pre_X_train = pd.read_csv(os.path.join(dir_, 'pre_X_train.csv'), index_col=0, header=None, squeeze=True)
-        pre_X_test = pd.read_csv(os.path.join(dir_, 'pre_X_test.csv'), index_col=0, header=None, squeeze=True)
+        pre_X_train = pd.read_csv(os.path.join(dir_, 'pre_X_train.csv'), index_col=0, header=None, squeeze=True, quotechar='"')
+        pre_X_test = pd.read_csv(os.path.join(dir_, 'pre_X_test.csv'), index_col=0, header=None, squeeze=True, quotechar='"')
         X_train = []
         X_test = []
 
@@ -100,6 +100,7 @@ def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
     cv_results = {}
     for params in param_grid:
         params.update(CONSTANT_HPARAMS)
+        print(f"performing CV with params:\n{params}")
         cv_result = lgb.cv(params, train_data, nfold=5)
 
         # get the optimal number of rounds from early stopping
@@ -114,6 +115,8 @@ def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
 
     # return the best score and its params
     best_score = min(cv_results)
+    print(f"CV results: {cv_results}")
+    print(f"best CV score: {best_score}.\nbest CV params: {cv_results[best_score]}")
     return best_score, cv_results[best_score]
 
 
@@ -123,25 +126,30 @@ def _recursive_defaultdict():
 
 def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
     p = Path(data_dir)
-    y_train = pd.read_csv(os.path.join(DATA_DIR, 'y_train.csv'), index_col=0, header=None, squeeze=True)
-    y_train = y_train.map(LANGUAGES)
-    y_test = pd.read_csv(os.path.join(DATA_DIR, 'y_test.csv'), index_col=0, header=None, squeeze=True)
-    y_test = y_test.map(LANGUAGES)
+    y_train_ = pd.read_csv(os.path.join(DATA_DIR, 'y_train.csv'), index_col=0, header=None, squeeze=True)
+    y_train_ = y_train_.map(LANGUAGES)
+    y_test_ = pd.read_csv(os.path.join(DATA_DIR, 'y_test.csv'), index_col=0, header=None, squeeze=True)
+    y_test_ = y_test_.map(LANGUAGES)
     results = _recursive_defaultdict()
 
     for dir_ in [d for d in p.iterdir() if d.is_dir()]:
 
         # load the relevant preprocessed data
+        print(f"loading X_train for {dir_.name}")
         X_train = pd.read_csv(os.path.join(dir_, 'X_train.csv'), index_col=0)
-        y_train = y_train.loc[X_train.index]
+        print(f"indexing y_train for {dir_.name}")
+        y_train = y_train_.loc[X_train.index]
         results[dir_.name]['y_train'] = y_train
+        print(f"loading X_test for {dir_.name}")
         X_test = pd.read_csv(os.path.join(dir_, 'X_test.csv'), index_col=0)
-        y_test = y_test.loc[X_test.index]
+        print(f"indexing y_test for {dir_.name}")
+        y_test = y_test_.loc[X_test.index]
         results[dir_.name]['y_test'] = y_test
 
         for feature_type in FEATURE_TYPES:
             # select features to use in training
             features = get_features(X_train, type_=feature_type)
+            print(f"using features `{feature_type}` with preprocessing `{dir_.name}`")
             train_data = lgb.Dataset(features, label=y_train)
 
             # tune hyper parameters and save them
@@ -150,6 +158,8 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
             results[dir_.name][feature_type]['params'] = best_hyperparams
 
             # train
+            print(f"training using features `{feature_type}` with preprocessing `{dir_.name}`")
+            print(f"training params:\n {best_hyperparams}")
             booster = lgb.train(best_hyperparams, train_data)
 
             # calculate training metrics
@@ -158,6 +168,7 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
             results[dir_.name][feature_type]['train_pred'] = train_predictions
             # todo delete the following line later
             results[dir_.name][feature_type]['train_error'] = np.mean(train_predictions != y_train)
+            print(f"training error is {results[dir_.name][feature_type]['train_error']}")
 
             # calculate test metrics
             test_predictions = booster.predict(X_test).argmax(axis=1)
@@ -165,7 +176,7 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
             results[dir_.name][feature_type]['test_pred'] = test_predictions
             # todo delete the following line later
             results[dir_.name][feature_type]['test_error'] = np.mean(test_predictions != y_test)
-
+            print(f"test error is {results[dir_.name][feature_type]['test_error']}")
             # save the model
             models_dir = os.path.join(dir_, MODELS_DIR)
             os.makedirs(models_dir, exist_ok=True)
