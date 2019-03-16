@@ -1,4 +1,5 @@
 from collections import defaultdict, OrderedDict
+import re
 
 import numpy as np
 import pandas as pd
@@ -7,7 +8,7 @@ import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.base import TransformerMixin
 
-from constants import LANGUAGES, VOCAB_REGEX
+from constants import LANGUAGES, VOCAB_REGEX, LETTERS
 
 
 class VocabExtractor(TransformerMixin):
@@ -71,11 +72,13 @@ class NgramExtractor(TransformerMixin):
         self.y_ = None
         self.case_sensitive = None
         self.col_name_modifier = None
+        self.simplify_punct = None
 
-    def fit(self, X, y, n, chars, k=500, case_sensitive=False):
+    def fit(self, X, y, n, chars, k=500, simplify_punct=True, case_sensitive=False):
         self.X_ = X
         self.y_ = y.loc[X.index]
         self.case_sensitive = case_sensitive
+        self.simplify_punct = simplify_punct
 
         if self.case_sensitive:
             self.col_name_modifier = '_cased_'
@@ -106,6 +109,10 @@ class NgramExtractor(TransformerMixin):
             self.X_ = X
         else:
             self.X_ = X.str.lower()
+
+        if self.simplify_punct:
+            self.X_ = self.X_.apply(self.simplify_punctuation)
+
         ngram_mapping = OrderedDict(zip(self.ngrams_, range(len(self.ngrams_))))
         n = len(self.ngrams_[0])
 
@@ -119,6 +126,8 @@ class NgramExtractor(TransformerMixin):
 
         for lang in set(self.y_):
             lang_tweets = self.X_[self.y_ == lang]
+            if self.simplify_punct:
+                lang_tweets = lang_tweets.apply(self.simplify_punctuation)
             lang_ngram_counts[lang] = self.get_ngram_counts(lang_tweets, n, chars)
 
         ngram_counts = pd.DataFrame.from_dict(lang_ngram_counts, orient='index')
@@ -150,12 +159,40 @@ class NgramExtractor(TransformerMixin):
         tweets.apply(_get_ngram_counts)
         return ngram_counts
 
+    @staticmethod
+    def simplify_punctuation(s):
+        # replace all non-letters and spaces with ' '. don't just remove all non-letters, as tweets
+        # sometimes skip spaces before or after punctuation, e.g "an end.a start", and just
+        # removing all punctuation will result in "an enda start".
+        s = re.sub(fr"[^{LETTERS} \-\']", " ", s)
+
+        # reduce all sequences of remaining non-letters into a single character
+        s = re.sub(r"([ \-'])\1+", r'\1', s)
+
+        # make sure every tweet starts and ends with a single space. that gives all the ngrams
+        # the option to be a part of a start or an end of a word.
+        if not s.startswith(' '):
+            s = f' {s}'
+        if not s.endswith(' '):
+            s = f'{s} '
+
+        # remove every hypen that is not preceded a-n-d followed by a letter
+        s = re.sub(rf"[^{LETTERS}]\-[^{LETTERS}]|\-[^{LETTERS}]|\-[^{LETTERS}]", " ", s)
+
+        # remove every apostrophe that is not adjacent to a letter
+        s = re.sub(rf"[^{LETTERS}]'[^{LETTERS}]", " ", s)
+
+        # reduce all newly created spaces
+        s = re.sub(" +", " ", s)
+
+        return s
+
 
 def get_features(df, type_):
     if type_ == 'ngrams':
-        return df.loc[:, ~(df.columns.str.startswith('w_') | df.columns.str.startswith('n_'))]
+        return df.loc[:, ~(df.columns.str.startswith('w_') | df.columns.str.startswith('h_'))]
     elif type_ == 'words':
-        return df.loc[:, df.columns.str.startswith('w_') | df.columns.str.startswith('n_')]
+        return df.loc[:, df.columns.str.startswith('w_')]
     elif type_ == 'all':
         return df
     else:
