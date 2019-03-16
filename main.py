@@ -10,7 +10,7 @@ import pandas as pd
 
 from constants import (DATA_DIR, MODELS_DIR, RESULTS_DIR,
                        LANGUAGES, ACTIONS_LIST, FEATURE_TYPES,
-                       ABC, ACCENTS, ABC_LOWER, ACCENTS_LOWER, BASIC_PUNCTUATION, OTHER_SYMBOLS,
+                       LETTERS, LETTERS_LOWER, OTHER_SYMBOLS,
                        HPARAM_GRID, CONSTANT_HPARAMS)
 from data_loader import load_data
 from preprocess import preprocess
@@ -33,8 +33,8 @@ def create_preprocessed_data(data_dir=DATA_DIR, actions_list=ACTIONS_LIST, dest_
 
     def save_preprocessed_data(train, test, dirpath):
         # remove tweets that end out as containing no letters
-        train = train[train.str.contains(f"[{ABC+ACCENTS}]")]
-        test = test[test.str.contains(f"[{ABC+ACCENTS}]")]
+        train = train[train.str.contains(f"[{LETTERS}]")]
+        test = test[test.str.contains(f"[{LETTERS}]")]
 
         train.to_csv(os.path.join(dirpath, 'pre_X_train.csv'), header=False)
         test.to_csv(os.path.join(dirpath, 'pre_X_test.csv'), header=False)
@@ -62,8 +62,8 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
     p = Path(pre_processed_root)
 
     ne = NgramExtractor()
-    _1gram_chars = ABC_LOWER+ACCENTS_LOWER+OTHER_SYMBOLS
-    _ngram_chars = ABC_LOWER+ACCENTS_LOWER+BASIC_PUNCTUATION
+    _1gram_chars = LETTERS_LOWER+OTHER_SYMBOLS
+    _ngram_chars = LETTERS_LOWER+" \'-"
 
     ve = VocabExtractor()
 
@@ -74,7 +74,7 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
         X_test = []
 
         # extract char ngrams
-        X_train.append(ne.fit_transform(pre_X_train, y_train, n=1, chars=_1gram_chars))
+        X_train.append(ne.fit_transform(pre_X_train, y_train, n=1, chars=_1gram_chars, simplify_punct=True))
         X_test.append(ne.transform(pre_X_test))
         for n in range(2, 5+1):
             X_train.append(ne.fit_transform(pre_X_train, y_train, n=n, chars=_ngram_chars))
@@ -91,11 +91,6 @@ def create_featured_data(pre_processed_root=DATA_DIR, data_dir=DATA_DIR):
         X_test.to_csv(os.path.join(dir_, 'X_test.csv'))
 
 
-# create_initial_data()
-# create_preprocessed_data()
-# create_featured_data()
-
-
 def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
     cv_results = {}
     for params in param_grid:
@@ -106,8 +101,8 @@ def tune_hyperparams(train_data, param_grid=HPARAM_GRID):
         # get the optimal number of rounds from early stopping
         metric = f"{params['metric']}-mean"
         num_rounds = len(cv_result[metric])
-        params['num_iterations'] = num_rounds
-        del params['early_stopping_round']
+        params['num_boost_round'] = num_rounds
+        del params['early_stopping_rounds']
 
         # save the score of these params
         best_score = cv_result[metric][-1]
@@ -124,7 +119,7 @@ def _recursive_defaultdict():
     return defaultdict(_recursive_defaultdict)
 
 
-def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
+def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR, feature_types=FEATURE_TYPES):
     p = Path(data_dir)
     y_train_ = pd.read_csv(os.path.join(DATA_DIR, 'y_train.csv'), index_col=0, header=None, squeeze=True)
     y_train_ = y_train_.map(LANGUAGES)
@@ -146,7 +141,7 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
         y_test = y_test_.loc[X_test.index]
         results[dir_.name]['y_test'] = y_test
 
-        for feature_type in FEATURE_TYPES:
+        for feature_type in feature_types:
             # select features to use in training
             features = get_features(X_train, type_=feature_type)
             print(f"using features `{feature_type}` with preprocessing `{dir_.name}`")
@@ -163,18 +158,17 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
             booster = lgb.train(best_hyperparams, train_data)
 
             # calculate training metrics
-            train_predictions = booster.predict(X_train).argmax(axis=1)
+            train_predictions = booster.predict(features).argmax(axis=1)
             train_predictions = pd.Series(train_predictions, index=X_train.index)
             results[dir_.name][feature_type]['train_pred'] = train_predictions
-            # todo delete the following line later
             results[dir_.name][feature_type]['train_error'] = np.mean(train_predictions != y_train)
             print(f"training error is {results[dir_.name][feature_type]['train_error']}")
 
             # calculate test metrics
-            test_predictions = booster.predict(X_test).argmax(axis=1)
+            test_features = get_features(X_test, type_=feature_type)
+            test_predictions = booster.predict(test_features).argmax(axis=1)
             test_predictions = pd.Series(test_predictions, index=X_test.index)
             results[dir_.name][feature_type]['test_pred'] = test_predictions
-            # todo delete the following line later
             results[dir_.name][feature_type]['test_error'] = np.mean(test_predictions != y_test)
             print(f"test error is {results[dir_.name][feature_type]['test_error']}")
             # save the model
@@ -190,4 +184,8 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR):
     return results
 
 
-results = train_and_test()
+# create_initial_data()
+# create_preprocessed_data()
+# create_featured_data()
+
+# results = train_and_test(feature_types=['ngrams'])
