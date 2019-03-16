@@ -8,8 +8,7 @@ def preprocess(tweets, actions=None):
     mapping = {'rt': remove_retweets,
                'handle': remove_handles,
                'url': remove_urls,
-               'red_rep': reduce_repetitions,
-               'strip': strip_}
+               'red_rep': reduce_repetitions}
 
     for action in actions:
         tweets = mapping[action](tweets)
@@ -64,8 +63,3 @@ def remove_urls(tweets):
 
     without_urls = tweets.apply(lambda t: re.sub(pattern, '', t))
     return without_urls
-
-
-def strip_(tweets):
-    stripped = tweets.apply(lambda x: x.strip(BASIC_PUNCTUATION))
-    return stripped
