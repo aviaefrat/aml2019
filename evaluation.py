@@ -72,10 +72,8 @@ def _plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None,
     return ax
 
 
-print_accuracies('results_ngrams_cv5_spaces_dashes_aposts.pkl', feature_types_=['ngrams'])
-
-
-plot_confusion_matrix('ngrams', 'rt-handle-url-red_rep', results_filename='results_ngrams_cv5_spaces_dashes_aposts.pkl')
-plot_confusion_matrix('ngrams', 'rt-handle-url-red_rep', results_filename='results_ngrams_cv5_spaces_dashes_aposts.pkl',normalize=False)
-plt.show()
+# print_accuracies('results_ngrams_cv5_spaces_dashes_aposts.pkl', feature_types_=['ngrams'])
+# plot_confusion_matrix('ngrams', 'rt-handle-url-red_rep', results_filename='results_ngrams_cv5_spaces_dashes_aposts.pkl')
+# plot_confusion_matrix('ngrams', 'rt-handle-url-red_rep', results_filename='results_ngrams_cv5_spaces_dashes_aposts.pkl',normalize=False)
+# plt.show()
 
