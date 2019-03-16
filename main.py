@@ -187,5 +187,4 @@ def train_and_test(data_dir=DATA_DIR, results_dir=RESULTS_DIR, feature_types=FEA
 # create_initial_data()
 # create_preprocessed_data()
 # create_featured_data()
-
 # results = train_and_test(feature_types=['ngrams'])
